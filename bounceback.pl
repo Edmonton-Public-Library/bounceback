@@ -24,7 +24,8 @@ $ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicor
 $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
 ###############################################
 
-my $date    = `transdate -d-0`;
+my $noteHeader = "Email bounced:"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
+my $date = `transdate -d-0`;
 chomp($date);
 
 #
@@ -38,8 +39,9 @@ sub usage()
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
- -u : Actually update the records, don't just show me what you're doing.
- -x : This (help) message.
+ -d int : Debug 'n' number of emails.
+ -u     : Actually update the records, don't just show me what you're doing.
+ -x     : This (help) message.
 
 example: echo email_addresses.lst | $0 -u
 
@@ -47,29 +49,65 @@ EOF
     exit;
 }
 
-my $searchString;
-my $inputFile;
-
 # Kicks off the setting of various switches.
 # param:  
 # return: 
 sub init
 {
-    my $opt_string = 'ux';
+    my $opt_string = 'uxd:';
     getopts( "$opt_string", \%opt ) or usage();
     usage() if ($opt{'x'});
 }
+
 init();
 
+my $logDate;
 my @emailList = ();
 @emailList = <STDIN>;
-foreach my $email (@emailList)
+my $debugCounter = 0;
+foreach my $NDRlogRecord (@emailList)
 {
-	chomp($email);
-	my $results = `echo "$email {EMAI}" | selusertext`;
-	if ( $results ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
+	#chomp($NDRlogRecord);
+	# There is an empty line.
+	next if ( not $NDRlogRecord or $NDRlogRecord eq "" );
+	# There is an entry that is a date field.
+	if($NDRlogRecord =~ m/^\d/)
 	{
-		print "email: $email =>$results<=";
+		chomp( $logDate = $NDRlogRecord );
+		print ">Processed on $logDate\n" if ($opt{'d'});
+		next;
 	}
+	my ($bounceReason, $email) = split('\|', $NDRlogRecord);
+	chomp($email);
+	print ">>>($bounceReason, $email)\n" if ($opt{'d'});
+	my $results = `echo "$email {EMAIL}"|selusertext|seluser -iU -oUBV.9998.V.9007.`;
+	if ( not $results ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
+	{
+		print "ignoring empty result from seluser.\n";
+		next;
+	}
+	# produces:
+	# 214XXX|2122101814XXXX||joxxxx@artktecture.ca|
+	my ($userKey, $barCode, $note, $vedEmail) = split('\|', $results);
+	print ">>>'$userKey', '$barCode', '$note', '$email'\n" if ($opt{'d'});
+	# if everything went well you should have the minimum of a key, barcode and email.
+	if (not $userKey or not $barCode or not $vedEmail)
+	{
+		print "patron could not be found by '$email'.\n";
+		next;
+	}
+	if ($opt{'u'})
+	{
+		# now everything is set we have to do the following:
+		# 1) zero out the email. Now we have to remove the record not just empty it. There is a script that runs to clean empty email enties(?).
+		# `echo "$barCode||" | edituserved -b -eEMAIL -l"ADMIN|PCGUI-DISP" -t1`;
+		# 2) edit the note field to include previous notes and the requested message.
+		my $noteField = qq{$note$noteHeader '$email'. $bounceReason $logDate};
+		print "$noteField" if ($opt{'d'});
+		# `echo "$barCode|$noteField|" | edituserved -b -eNOTE -l"ADMIN|PCGUI-DISP" -tx`;
+		# TODO test this with a file that contains one email or use -d 1 and see what it does to the VED.
+	}
+	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
+	$debugCounter++;
 }
 1;
