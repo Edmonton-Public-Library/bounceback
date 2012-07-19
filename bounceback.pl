@@ -90,7 +90,7 @@ foreach my $NDRlogRecord (@emailList)
 	my $flatUser = `echo "$email {EMAIL}"|selusertext|dumpflatuser`;
 	if ( not $flatUser ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
 	{
-		print "ignoring empty result from seluser.\n";
+		print "no patron found with email of '$email'.\n";
 		next;
 	}
 	
@@ -121,6 +121,9 @@ foreach my $NDRlogRecord (@emailList)
 			print AFTER "$flatUser";
 			close(AFTER);
 		}
+		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
+		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
+		exit;
 	}
 	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
