@@ -104,7 +104,7 @@ foreach my $NDRlogRecord (@emailList)
 		my @VEDFields = split('\n', $flatUser);
 		print "\n\n===$flatUser===\n\n" if ($opt{'d'});
 		@VEDFields = appendVED("NOTE", $noteField, @VEDFields);
-		# @VEDFields = deleteVED("EMAIL", @VEDFields);
+		@VEDFields = deleteVED("EMAIL", @VEDFields);
 		$flatUser  = "";
 		foreach (@VEDFields)
 		{
