@@ -101,8 +101,13 @@ foreach my $NDRlogRecord (@emailList)
 		# `echo "$barCode||" | edituserved -b -eEMAIL -l"ADMIN|PCGUI-DISP" -t1`;
 		# 2) edit the note field to include previous notes and the requested message.
 		my $noteField = $noteHeader . " '$email'. $bounceReason. $logDate";
+		if ($opt{'d'})
+		{
+			open(BEFORE, ">beforeVED.txt") or die "Error: $!\n";
+			print BEFORE "$flatUser";
+			close(BEFORE);
+		}
 		my @VEDFields = split('\n', $flatUser);
-		print "\n\n===$flatUser===\n\n" if ($opt{'d'});
 		@VEDFields = appendVED("NOTE", $noteField, @VEDFields);
 		@VEDFields = deleteVED("EMAIL", @VEDFields);
 		$flatUser  = "";
@@ -110,7 +115,12 @@ foreach my $NDRlogRecord (@emailList)
 		{
 			$flatUser .= $_."\n";
 		}
-		print "\n\n===$flatUser===\n\n" if ($opt{'d'});
+		if ($opt{'d'})
+		{
+			open(AFTER, ">afterVED.txt") or die "Error: $!\n";
+			print AFTER "$flatUser";
+			close(AFTER);
+		}
 		exit;
 		# first is there a note field to update and if not add it the easy way.
 		if ( not hasVED("NOTE", @VEDFields) )
@@ -152,7 +162,8 @@ sub deleteVED
 	# you have to be careful not to delete an element in an array during
 	if ($atIndex > -1)
 	{
-		delete $VEDFields[$atIndex];
+		# use splice because delete doesn't delete the element it just deletes the elements contents.
+		splice(@VEDFields, $atIndex, 1);
 	}
 	return @VEDFields;
 }
