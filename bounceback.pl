@@ -123,7 +123,7 @@ foreach my $NDRlogRecord (@emailList)
 		}
 		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
 		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
-		exit;
+		# exit;
 	}
 	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
