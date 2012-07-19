@@ -121,21 +121,6 @@ foreach my $NDRlogRecord (@emailList)
 			print AFTER "$flatUser";
 			close(AFTER);
 		}
-		exit;
-		# first is there a note field to update and if not add it the easy way.
-		if ( not hasVED("NOTE", @VEDFields) )
-		{
-			my $barCode = `echo "$email {EMAIL}" | selusertext | seluser -iK -oB`;
-			chomp($barCode);
-			if ($barCode)
-			{
-				$barCode .= $noteField."|";
-				print "\n\n===$barCode===\n\n" if ($opt{'d'});
-				# exit;
-				`echo "$barCode" | edituserved -b -eNOTE -l"ADMIN|PCGUI-DISP" -tx`;
-			}
-		}
-		
 	}
 	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
@@ -166,21 +151,6 @@ sub deleteVED
 		splice(@VEDFields, $atIndex, 1);
 	}
 	return @VEDFields;
-}
-
-sub hasVED
-{
-	my ($field, @VEDFields) = @_;
-	foreach my $VEDField (@VEDFields)
-	{
-		# print "$VEDField\n";
-		if ($VEDField =~ m/^\.($field)\./)
-		{
-			print "FOUND: $VEDField\n\n" if ($opt{'d'});
-			return 1;
-		}
-	}
-	return 0;
 }
 
 sub appendVED
