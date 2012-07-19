@@ -35,7 +35,7 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: $0 [-x][-u]
+	usage: cat NDR.log | $0 [-x][-u]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
@@ -64,50 +64,125 @@ init();
 my $logDate;
 my @emailList = ();
 @emailList = <STDIN>;
+
 my $debugCounter = 0;
 foreach my $NDRlogRecord (@emailList)
 {
-	#chomp($NDRlogRecord);
+	chomp($NDRlogRecord);
 	# There is an empty line.
 	next if ( not $NDRlogRecord or $NDRlogRecord eq "" );
 	# There is an entry that is a date field.
 	if($NDRlogRecord =~ m/^\d/)
 	{
-		chomp( $logDate = $NDRlogRecord );
-		print ">Processed on $logDate\n" if ($opt{'d'});
+		$logDate = $NDRlogRecord;
+		print ">>Processed on $logDate<<\n" if ($opt{'d'});
 		next;
 	}
+	# Split Jamie's log file into reason and address.
 	my ($bounceReason, $email) = split('\|', $NDRlogRecord);
-	chomp($email);
-	print ">>>($bounceReason, $email)\n" if ($opt{'d'});
-	my $results = `echo "$email {EMAIL}"|selusertext|seluser -iU -oUBV.9998.V.9007.`;
-	if ( not $results ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
+	if (not $email)
+	{
+		print "no email found in '$NDRlogRecord'\n";
+		next;
+	}
+	print ">>>($bounceReason, $email)<<<\n" if ($opt{'d'});
+	# get the VED fields for this user via API.
+	my $flatUser = `echo "$email {EMAIL}"|selusertext|dumpflatuser`;
+	if ( not $flatUser ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
 	{
 		print "ignoring empty result from seluser.\n";
 		next;
 	}
-	# produces:
-	# 214XXX|2122101814XXXX||joxxxx@artktecture.ca|
-	my ($userKey, $barCode, $note, $vedEmail) = split('\|', $results);
-	print ">>>'$userKey', '$barCode', '$note', '$email'\n" if ($opt{'d'});
-	# if everything went well you should have the minimum of a key, barcode and email.
-	if (not $userKey or not $barCode or not $vedEmail)
-	{
-		print "patron could not be found by '$email'.\n";
-		next;
-	}
+	
 	if ($opt{'u'})
 	{
 		# now everything is set we have to do the following:
 		# 1) zero out the email. Now we have to remove the record not just empty it. There is a script that runs to clean empty email enties(?).
 		# `echo "$barCode||" | edituserved -b -eEMAIL -l"ADMIN|PCGUI-DISP" -t1`;
 		# 2) edit the note field to include previous notes and the requested message.
-		my $noteField = qq{$note$noteHeader '$email'. $bounceReason $logDate};
-		print "$noteField" if ($opt{'d'});
-		# `echo "$barCode|$noteField|" | edituserved -b -eNOTE -l"ADMIN|PCGUI-DISP" -tx`;
-		# TODO test this with a file that contains one email or use -d 1 and see what it does to the VED.
+		my $noteField = $noteHeader . " '$email'. $bounceReason. $logDate";
+		my @VEDFields = split('\n', $flatUser);
+		print "\n\n===$flatUser===\n\n" if ($opt{'d'});
+		@VEDFields = appendVED("NOTE", $noteField, @VEDFields);
+		# @VEDFields = deleteVED("EMAIL", @VEDFields);
+		$flatUser  = "";
+		foreach (@VEDFields)
+		{
+			$flatUser .= $_."\n";
+		}
+		print "\n\n===$flatUser===\n\n" if ($opt{'d'});
+		exit;
+		# first is there a note field to update and if not add it the easy way.
+		if ( not hasVED("NOTE", @VEDFields) )
+		{
+			my $barCode = `echo "$email {EMAIL}" | selusertext | seluser -iK -oB`;
+			chomp($barCode);
+			if ($barCode)
+			{
+				$barCode .= $noteField."|";
+				print "\n\n===$barCode===\n\n" if ($opt{'d'});
+				# exit;
+				`echo "$barCode" | edituserved -b -eNOTE -l"ADMIN|PCGUI-DISP" -tx`;
+			}
+		}
+		
 	}
 	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
 }
 1;
+
+sub deleteVED
+{
+	my ($field, @VEDFields) = @_;
+	my $vedIndex = 0;
+	my $atIndex  = -1;
+	foreach my $VEDField (@VEDFields)
+	{
+		# print "$VEDField\n";
+		if ($VEDField =~ m/^\.($field)\./)
+		{
+			print "DELETE: $VEDField\n\n" if ($opt{'d'});
+			$atIndex = $vedIndex;
+			last;
+		}
+		$vedIndex++;
+	}
+	# don't delete anything if we didn't find the field we are after.
+	# you have to be careful not to delete an element in an array during
+	if ($atIndex > -1)
+	{
+		delete $VEDFields[$atIndex];
+	}
+	return @VEDFields;
+}
+
+sub hasVED
+{
+	my ($field, @VEDFields) = @_;
+	foreach my $VEDField (@VEDFields)
+	{
+		# print "$VEDField\n";
+		if ($VEDField =~ m/^\.($field)\./)
+		{
+			print "FOUND: $VEDField\n\n" if ($opt{'d'});
+			return 1;
+		}
+	}
+	return 0;
+}
+
+sub appendVED
+{
+	my ($field, $newValue, @VEDFields) = @_;
+	foreach my $VEDField (@VEDFields)
+	{
+		# print "$VEDField\n";
+		if ($VEDField =~ m/^\.($field)\./)
+		{
+			$VEDField .= " ".$newValue;
+			print "APPEND: $VEDField\n";
+		}
+	}
+	return @VEDFields;
+}
