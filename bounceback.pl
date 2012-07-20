@@ -60,7 +60,8 @@ sub init
 }
 
 init();
-
+open LOG, ">robobo-4000.log" or die "Error: $!\n";
+open PREUPDATEPATRON, ">robobo-patron-flatuser" or die "Error: $!\n";
 my $logDate;
 my @emailList = ();
 @emailList = <STDIN>;
@@ -75,7 +76,8 @@ foreach my $NDRlogRecord (@emailList)
 	if($NDRlogRecord =~ m/^\d/)
 	{
 		$logDate = $NDRlogRecord;
-		print ">>Processed on $logDate<<\n" if ($opt{'d'});
+		print "Processed on $logDate\n" if ($opt{'d'});
+		print LOG "Processed on $logDate\n";
 		next;
 	}
 	# Split Jamie's log file into reason and address.
@@ -86,16 +88,19 @@ foreach my $NDRlogRecord (@emailList)
 		next;
 	}
 	print ">>>($bounceReason, $email)<<<\n" if ($opt{'d'});
+	print LOG "($bounceReason, $email)\n";
 	# get the VED fields for this user via API.
 	my $flatUser = `echo "$email {EMAIL}"|selusertext|dumpflatuser`;
 	if ( not $flatUser ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
 	{
-		print "no patron found with email of '$email'.\n";
+		print     "no patron found with email of '$email'.\n";
+		print LOG "no patron found with email of '$email'.\n";
 		next;
 	}
 	
 	if ($opt{'u'})
 	{
+		print PREUPDATEPATRON "$flatUser";
 		# now everything is set we have to do the following:
 		# 1) zero out the email. Now we have to remove the record not just empty it. There is a script that runs to clean empty email enties(?).
 		# `echo "$barCode||" | edituserved -b -eEMAIL -l"ADMIN|PCGUI-DISP" -t1`;
@@ -128,6 +133,8 @@ foreach my $NDRlogRecord (@emailList)
 	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
 }
+close(LOG);
+close(PREUPDATEPATRON);
 1;
 
 sub deleteVED
