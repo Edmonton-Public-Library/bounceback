@@ -60,12 +60,13 @@ sub init
 }
 
 init();
-open LOG, ">robobo-4000.log" or die "Error: $!\n";
-open PREUPDATEPATRON, ">robobo-patron-flatuser" or die "Error: $!\n";
+open LOG, ">>robobo-4000.log" or die "Error opening log file: $!\n";
+open PREUPDATEPATRON, ">>robobo-patron-flatuser" or die "Error opening backup flat user: $!\n";
 my $logDate;
 my @emailList = ();
 @emailList = <STDIN>;
-
+# advance this counter for every iteration of a client so the script will
+# exit when the count reaches the values specifed with the -d flag.
 my $debugCounter = 0;
 foreach my $NDRlogRecord (@emailList)
 {
@@ -87,8 +88,8 @@ foreach my $NDRlogRecord (@emailList)
 		print "no email found in '$NDRlogRecord'\n";
 		next;
 	}
-	print ">>>($bounceReason, $email)<<<\n" if ($opt{'d'});
-	print LOG "($bounceReason, $email)\n";
+	print "--($bounceReason, $email)--\n" if ($opt{'d'});
+	print LOG "--($bounceReason, $email)--\n";
 	# get the VED fields for this user via API.
 	my $flatUser = `echo "$email {EMAIL}"|selusertext|dumpflatuser`;
 	if ( not $flatUser ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
@@ -98,8 +99,12 @@ foreach my $NDRlogRecord (@emailList)
 		next;
 	}
 	
+	# Update the user's account. Now it turns out that on the recommendation of Margaret Pelfrey 
+	# you need get the entire record from dumpflatuser, modify the contents, and overlay the record
+	# over the original.
 	if ($opt{'u'})
 	{
+		# we save the original record for our records in case.
 		print PREUPDATEPATRON "$flatUser";
 		# now everything is set we have to do the following:
 		# 1) zero out the email. Now we have to remove the record not just empty it. There is a script that runs to clean empty email enties(?).
@@ -128,8 +133,9 @@ foreach my $NDRlogRecord (@emailList)
 		}
 		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
 		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
-		# exit;
+		print LOG "User updated.\n";
 	}
+	# Exit early when debugging.
 	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
 }
@@ -137,6 +143,10 @@ close(LOG);
 close(PREUPDATEPATRON);
 1;
 
+# Deletes a single VED record.
+# param:  field string - name of the VED record to delete, like 'EMAIL'. Do not include the '.' at the beginning or
+#         or end of the field name. The field must start with the argument name exactly - case matters.
+# return: List - argument list returned with the specified VED record removed.
 sub deleteVED
 {
 	my ($field, @VEDFields) = @_;
@@ -148,6 +158,7 @@ sub deleteVED
 		if ($VEDField =~ m/^\.($field)\./)
 		{
 			print "DELETE: $VEDField\n\n" if ($opt{'d'});
+			print LOG "DELETED: $VEDField\n";
 			$atIndex = $vedIndex;
 			last;
 		}
@@ -163,16 +174,23 @@ sub deleteVED
 	return @VEDFields;
 }
 
+# Appends value to an existing VED record if one exists.
+# param:  field string - name of the VED record to append to, like 'NOTE'. Do not include the '.' at the beginning or
+#         or end of the field name. The field must start with the argument name exactly - case sensitive.
+# return: List - argument list returned with the specified VED record updated.
 sub appendVED
 {
 	my ($field, $newValue, @VEDFields) = @_;
 	foreach my $VEDField (@VEDFields)
 	{
-		# print "$VEDField\n";
 		if ($VEDField =~ m/^\.($field)\./)
 		{
+			# here we have to paste the added '\n' field together to ensure we get a single line before appending.
+			print "=$VEDField=\n";
 			$VEDField .= " ".$newValue;
+			print "==$VEDField==\n";
 			print "APPEND: $VEDField\n";
+			print LOG "APPEND: $VEDField\n";
 		}
 	}
 	return @VEDFields;
