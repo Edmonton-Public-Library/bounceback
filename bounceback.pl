@@ -60,8 +60,8 @@ sub init
 }
 
 init();
-open LOG, ">>robobo-4000.log" or die "Error opening log file: $!\n";
-open PREUPDATEPATRON, ">>robobo-patron-flatuser" or die "Error opening backup flat user: $!\n";
+open LOG, ">>bounceback.log" or die "Error opening log file: $!\n";
+open PREUPDATEPATRON, ">>patron-flatuser.bck" or die "Error opening backup flat user: $!\n";
 my $logDate;
 my @emailList = ();
 @emailList = <STDIN>;
@@ -132,7 +132,8 @@ foreach my $NDRlogRecord (@emailList)
 			close(AFTER);
 		}
 		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
-		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
+		# `echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
+		print "$flatUser";
 		print LOG "User updated.\n";
 	}
 	# Exit early when debugging.
@@ -181,17 +182,33 @@ sub deleteVED
 sub appendVED
 {
 	my ($field, $newValue, @VEDFields) = @_;
-	foreach my $VEDField (@VEDFields)
+	my @newVED = ();
+	chomp($newValue);
+	while (@VEDFields)
 	{
+		my $VEDField = shift(@VEDFields);
 		if ($VEDField =~ m/^\.($field)\./)
 		{
-			# here we have to paste the added '\n' field together to ensure we get a single line before appending.
-			print "=$VEDField=\n";
+			chomp($VEDField);
+			print "==$VEDField==\n" if ($opt{'d'});
+			my $tmp = shift(@VEDFields);
+			while ($tmp !~ m/^\./)
+			{
+				$VEDField .= $tmp;
+				chomp($VEDField);
+				$tmp = shift(@VEDFields);
+			}
+			# now append the new content
 			$VEDField .= " ".$newValue;
-			print "==$VEDField==\n";
-			print "APPEND: $VEDField\n";
+			push(@newVED, $VEDField);
+			# now put back the last shifted value that tested positive for another field marker.
+			push(@newVED, $tmp);
 			print LOG "APPEND: $VEDField\n";
 		}
+		else
+		{
+			push(@newVED, $VEDField);
+		}
 	}
-	return @VEDFields;
+	return @newVED;
 }
