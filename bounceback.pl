@@ -132,8 +132,7 @@ foreach my $NDRlogRecord (@emailList)
 			close(AFTER);
 		}
 		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
-		# `echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
-		print "$flatUser";
+		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
 		print LOG "User updated.\n";
 	}
 	# Exit early when debugging.
@@ -151,28 +150,20 @@ close(PREUPDATEPATRON);
 sub deleteVED
 {
 	my ($field, @VEDFields) = @_;
-	my $vedIndex = 0;
-	my $atIndex  = -1;
-	foreach my $VEDField (@VEDFields)
+	my @newVED = ();
+	while (@VEDFields)
 	{
-		# print "$VEDField\n";
+		my $VEDField = shift(@VEDFields);
 		if ($VEDField =~ m/^\.($field)\./)
 		{
-			print "DELETE: $VEDField\n\n" if ($opt{'d'});
+			print     "DELETE: $VEDField\n\n" if ($opt{'d'});
 			print LOG "DELETED: $VEDField\n";
-			$atIndex = $vedIndex;
-			last;
+			next;
 		}
-		$vedIndex++;
+		push(@newVED, $VEDField);
 	}
-	# don't delete anything if we didn't find the field we are after.
-	# you have to be careful not to delete an element in an array during
-	if ($atIndex > -1)
-	{
-		# use splice because delete doesn't delete the element it just deletes the elements contents.
-		splice(@VEDFields, $atIndex, 1);
-	}
-	return @VEDFields;
+	
+	return @newVED;
 }
 
 # Appends value to an existing VED record if one exists.
@@ -203,6 +194,7 @@ sub appendVED
 			push(@newVED, $VEDField);
 			# now put back the last shifted value that tested positive for another field marker.
 			push(@newVED, $tmp);
+			print     "APPEND: $VEDField\n" if ($opt{'d'});
 			print LOG "APPEND: $VEDField\n";
 		}
 		else
