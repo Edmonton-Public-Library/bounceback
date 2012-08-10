@@ -35,7 +35,7 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: cat NDR.log | $0 [-x][-u]
+	usage: $0 [-x][-u]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
@@ -63,8 +63,21 @@ init();
 open LOG, ">>bounceback.log" or die "Error opening log file: $!\n";
 open PREUPDATEPATRON, ">>patron-flatuser.bck" or die "Error opening backup flat user: $!\n";
 my $logDate;
-my @emailList = ();
-@emailList = <STDIN>;
+open NDR_LOG, "<NDR.log" or die "Error opening NDR.log: $!\n";
+my @emailList = <NDR_LOG>;
+close(NDR_LOG);
+if (@emailList > 200)
+{
+	print "* Warning: there seems to be a large number of bounced emails. Are you being black-listed by an ISP? *\n";
+	print "* Warning: if you are you don't want to alter some of these customer's accounts *\nDo you want to continue <yes|no> ";
+	my $answer;
+	chomp ($answer = <>);
+	if ($answer !~ m/^y/i)
+	{
+		print "that's probably a good idea. exiting.\n";
+		exit 0;
+	}
+}
 # advance this counter for every iteration of a client so the script will
 # exit when the count reaches the values specifed with the -d flag.
 my $debugCounter = 0;
