@@ -1,3 +1,13 @@
+This directory contains two scripts used for handling bounced emails. The first is
+bounceback.pl which is run on EPLAPP and modifies customer's accounts.
+The second is uniqbounce.pl which manages a list of emailed customers. This script is
+not used regularly and was developed to help with the situation where Microsoft
+blacklisted our site and hotmail customers no longer received our notices.
+
+Until that got fixed, we emailed customers through our marketing accout at EPL,
+that they we could not reach them by email so please check your account online
+to find out what fees, fines, holds you have. See documentation in the perl script.
+
 bash-3.2$ echo 21221015766709 | seluser -iB -oU | dumpflatuser
 Symphony $<user> $<selection> 3.4.1 $<started_on> $<tuesday:u>, $<july:u> 10, 2012, 10:34 AM
 Symphony $<print:u> $<user:u> 3.4.1 $<started_on> $<tuesday:u>, $<july:u> 10, 2012, 10:34 AM
@@ -259,10 +269,10 @@ This is from Jim Hamilton:
 
 Hi Andrew,
 
-Attached is the script i was discussing but I don't recommend it for your purposes. This script uses transactions 
+Attached is the script i was discussing but I don't recommend it for your purposes. This script uses transactions
 which are probably unnecessarily complicated when there are easier ways. Transactions are a last resort.
 
-After you have your records you wish to correct, build a script like the one below that will produce an input 
+After you have your records you wish to correct, build a script like the one below that will produce an input
 file and use loadflatusers (or run Loadusers in Workflows) to overlay your corrections. I can provide more detail if you wish.
 
 Jim
