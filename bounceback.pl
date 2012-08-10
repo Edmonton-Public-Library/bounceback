@@ -68,7 +68,7 @@ my @emailList = <NDR_LOG>;
 close(NDR_LOG);
 if (@emailList > 200)
 {
-	print "* Warning: there seems to be a large number of bounced emails. Are you being black-listed by an ISP? *\n";
+	print "* Warning: there seems to be a large number of bounced emails (" . scalar(@emailList) . "). Are you being black-listed by an ISP? *\n";
 	print "* Warning: if you are you don't want to alter some of these customer's accounts *\nDo you want to continue <yes|no> ";
 	my $answer;
 	chomp ($answer = <>);
