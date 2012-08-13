@@ -10,7 +10,7 @@
 # Date:    July 9, 2012
 # Rev:     0.0 - July 9, 2012 Develop
 ########################################################################
-
+# TODO: there is a '.forward' file that is sending all this stuff to ILS Notices. We should remove that so the mail ends up in /var/mail/sirsi and process mail from there. then we don't have to worry about spam et al.
 use strict;
 use warnings;
 use vars qw/ %opt /;
