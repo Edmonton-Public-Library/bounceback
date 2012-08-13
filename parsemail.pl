@@ -35,10 +35,11 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: $0 [-x][-k]
+	usage: $0 [-x][-k][-d]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
+ -d : Diagnostics.
  -k : Keep the /var/mail/sirsi file. Don't do this in production, it grows quickly.
  -x : This (help) message.
 
@@ -123,17 +124,7 @@ while( ($k, $v) = each %reasonCount )
 	$mail .= "$k: $v.\n";
 	print "$k: $v.\n";
 }
-$mail .= "Domains:\n";
-format STATS =
-@<<<<<<<<<<<<<<<<<<<<<< @####
-$k, $v
-.
-$~ = "STATS";
-while( ($k, $v) = ( each %domainCount ) )
-{
-	write;
-	$mail .= "$k: $v\n";
-}
+
 
 open( MAIL, "| /usr/bin/mailx -s 'Email report' anisbet\@epl.ca" ) || warn "mailx failed: $!\n";
 if ( $customerEmailCount > $warningLimit )
@@ -142,6 +133,21 @@ if ( $customerEmailCount > $warningLimit )
 }
 print MAIL "$mail\n";
 close( MAIL );
+
+# Diagnostics
+if ( $opt{'d'} )
+{
+	print "Domains:\n";
+	format STATS =
+@<<<<<<<<<<<<<<<<<<<<<< @####
+$k, $v
+.
+	$~ = "STATS";
+	while( ($k, $v) = ( each %domainCount ) )
+	{
+		write;
+	}
+}
 
 # Keep the mail? (Why would you?)
 if ( not $opt{'k'} )
