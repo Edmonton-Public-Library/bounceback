@@ -12,7 +12,6 @@
 # Rev:     0.0 - July 13, 2012 Develop
 ########################################################################
 use strict;
-# use warnings;
 use vars qw/ %opt /;
 use Getopt::Std;
 
@@ -36,11 +35,10 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: $0 [-x][-c]
+	usage: $0 [-x][-k]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
- -d : Debug 'n' number of emails.
  -k : Keep the /var/mail/sirsi file. Don't do this in production, it grows quickly.
  -x : This (help) message.
 
@@ -79,13 +77,14 @@ sub init
 
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
-open BOUNCED_CUSTOMERS, ">>$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
+open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
 my $S_RECIPIENT = 1;
 my $S_NONE      = 0;
 my $state       = $S_NONE;
 my $emailAddress;
 my %reasonCount;
-my @customersEmail;
+my %domainCount;
+my $customerEmailCount;
 while (<SIRSI_MAIL>)
 {
 	# look for the header 
@@ -94,9 +93,7 @@ while (<SIRSI_MAIL>)
 	if ( $_ =~ m/^Action:/ and $state == $S_RECIPIENT )
 	{
 		my @actionReason = split(':', $_);
-		my $reason = trim( $actionReason[1] );
-		print "$emailAddress $reason\n" if ( $reason =~ m/Failed/ );
-		$reason = lc( $reason );
+		my $reason = lc ( trim( $actionReason[1] ) );
 		$reasonCount{ $reason } = 0 if ( not $reasonCount{ $reason } );
 		$reasonCount{ $reason }++;
 		$state = $S_NONE;
@@ -106,31 +103,49 @@ while (<SIRSI_MAIL>)
 		$state = $S_RECIPIENT;
 		my @finalRecipientAddress = split( ';', $_ );
 		$emailAddress = trim( $finalRecipientAddress[1] );
-		print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress";
-		push( @customersEmail, $emailAddress );
+		print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
+		$customerEmailCount++;
+		my @nameDomain = split( '\@', $emailAddress );
+		my $domain = lc( $nameDomain[1] );
+		$domainCount{ $domain } = 0 if ( not $domainCount{ $domain } );
+		$domainCount{ $domain }++;
 	}
 }
 
 close BOUNCED_CUSTOMERS;
 close SIRSI_MAIL;
 
-my $mail = "";
-while( my ($k, $v) = each %reasonCount ) 
+# mail stats to andrew.
+my ($k, $v);
+my $mail = "Reasons:\n";
+while( ($k, $v) = each %reasonCount ) 
 {
 	$mail .= "$k: $v.\n";
 	print "$k: $v.\n";
 }
+$mail .= "Domains:\n";
+format STATS =
+@<<<<<<<<<<<<<<<<<<<<<< @####
+$k, $v
+.
+$~ = "STATS";
+while( ($k, $v) = ( each %domainCount ) )
+{
+	write;
+	$mail .= "$k: $v\n";
+}
 
 open( MAIL, "| /usr/bin/mailx -s 'Email report' anisbet\@epl.ca" ) || warn "mailx failed: $!\n";
-if ( @customersEmail > $warningLimit )
+if ( $customerEmailCount > $warningLimit )
 {
-    print MAIL "There may be a problem with emails from EPLAPP. " . scalar( @customersEmail ) . " emails have bounced. Check NDR.log for more details.\n";
+    print MAIL "There may be a problem with emails from EPLAPP. $customerEmailCount emails have bounced. Check NDR.log for more details.\n";
 }
 print MAIL "$mail\n";
 close( MAIL );
 
-if ( $opt{'k'} )
+# Keep the mail? (Why would you?)
+if ( not $opt{'k'} )
 {
-
+	unlink($mailbox);
 }
 1;
