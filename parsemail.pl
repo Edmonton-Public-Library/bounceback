@@ -19,12 +19,12 @@ use Getopt::Std;
 # without assuming any environment settings and we need to use sirsi's.
 ###############################################
 # *** Edit these to suit your environment *** #
-# $ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
-# $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
+$ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
+$ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
 ###############################################
 
 my $noteHeader       = "Undeliverable email address"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
-my $mailbox          = "./sirsi"; #"/var/mail/sirsi";
+my $mailbox          = "/var/mail/sirsi";
 my $bouncedCustomers = "./NDR.log";
 my $warningLimit     = 200; # limit beyond which a warning is issued that we are getting too many bounced emails.
 
