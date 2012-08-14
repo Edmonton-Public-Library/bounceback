@@ -35,12 +35,12 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: $0 [-x][-k][-d]
+	usage: $0 [-x][-c][-d]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
  -d : Diagnostics.
- -k : Keep the /var/mail/sirsi file. Don't do this in production, it grows quickly.
+ -c : Clean the /var/mail/sirsi file.
  -x : This (help) message.
 
 example: $0
@@ -66,7 +66,7 @@ sub trim($)
 # return: 
 sub init
 {
-    my $opt_string = 'dkx';
+    my $opt_string = 'dcx';
     getopts( "$opt_string", \%opt ) or usage();
     usage() if ($opt{'x'});
 	if (not -s $mailbox) # file not exist or has zero size
@@ -78,7 +78,7 @@ sub init
 
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
-open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
+open BOUNCED_CUSTOMERS, ">>$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
 my $S_RECIPIENT = 1;
 my $S_NONE      = 0;
 my $state       = $S_NONE;
@@ -89,7 +89,7 @@ my $customerEmailCount;
 while (<SIRSI_MAIL>)
 {
 	# look for the header 
-	# Final-Recipient: RFC822; razzak_syad@hotmail.com
+	# Final-Recipient: RFC822; xyz@hotmail.com
 	# Action: failed
 	if ( $_ =~ m/^Action:/ and $state == $S_RECIPIENT )
 	{
@@ -124,9 +124,8 @@ while( ($k, $v) = each %reasonCount )
 	$mail .= "$k: $v.\n";
 	print "$k: $v.\n";
 }
-
-
-open( MAIL, "| /usr/bin/mailx -s 'Email report' anisbet\@epl.ca" ) || warn "mailx failed: $!\n";
+# Mail results.
+open( MAIL, "| /usr/bin/mailx -s 'Email report' ilsteam\@epl.ca" ) || warn "mailx failed: $!\n";
 if ( $customerEmailCount > $warningLimit )
 {
     print MAIL "There may be a problem with emails from EPLAPP. $customerEmailCount emails have bounced. Check NDR.log for more details.\n";
@@ -150,7 +149,7 @@ $k, $v
 }
 
 # Keep the mail? (Why would you?)
-if ( not $opt{'k'} )
+if ( $opt{'c'} )
 {
 	unlink($mailbox);
 }
