@@ -79,10 +79,10 @@ sub init
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
 open BOUNCED_CUSTOMERS, ">>$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
-my $emailAddress;
+my $emailAddress = "";
 my %reasonCount;
 my %domainCount;
-my $customerEmailCount;
+my $customerEmailCount = 0;
 while (<SIRSI_MAIL>)
 {
 	# look for the header 
