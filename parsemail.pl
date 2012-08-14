@@ -117,7 +117,7 @@ close SIRSI_MAIL;
 
 # mail stats to andrew.
 my ($k, $v);
-my $mail = "Reasons:\n";
+my $mail = "";
 while( ($k, $v) = each %reasonCount ) 
 {
 	$mail .= "$k: $v.\n";
@@ -125,13 +125,26 @@ while( ($k, $v) = each %reasonCount )
 }
 
 
-open( MAIL, "| /usr/bin/mailx -s 'Email report' anisbet\@epl.ca" ) || warn "mailx failed: $!\n";
+my $stakeholders =  qq{ilsteam\@epl.ca};
 if ( $customerEmailCount > $warningLimit )
 {
+	open( MAIL, "| /usr/bin/mailx -s 'Problem: Email report' $stakeholders" ) || warn "mailx failed: $!\n";
     print MAIL "There may be a problem with emails from EPLAPP. $customerEmailCount emails have bounced. Check NDR.log for more details.\n";
+	print MAIL "$mail\n";
+	close( MAIL );
 }
-print MAIL "$mail\n";
-close( MAIL );
+elsif ( $customerEmailCount == 0 )
+{
+	open( MAIL, "| /usr/bin/mailx -s 'No bounced email to report' $stakeholders" ) || warn "mailx failed: $!\n";
+	print MAIL "There are no bounced messages.\n";
+	close( MAIL );
+}
+else
+{
+	open( MAIL, "| /usr/bin/mailx -s 'Email report' $stakeholders" ) || warn "mailx failed: $!\n";
+	print MAIL "$mail\n";
+	close( MAIL );
+}
 
 # Diagnostics
 if ( $opt{'d'} )
