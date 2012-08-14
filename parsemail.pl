@@ -40,7 +40,7 @@ sub usage()
 Handles the arduous task of updating users accounts if their emails don't work.
 
  -d : Diagnostics.
- -c : Clean the /var/mail/sirsi file.
+ -c : Clean /var/mail/sirsi file.
  -x : This (help) message.
 
 example: $0
@@ -79,9 +79,6 @@ sub init
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
 open BOUNCED_CUSTOMERS, ">>$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
-my $S_RECIPIENT = 1;
-my $S_NONE      = 0;
-my $state       = $S_NONE;
 my $emailAddress;
 my %reasonCount;
 my %domainCount;
@@ -89,23 +86,25 @@ my $customerEmailCount;
 while (<SIRSI_MAIL>)
 {
 	# look for the header 
-	# Final-Recipient: RFC822; xyz@hotmail.com
+	# Final-Recipient: RFC822; razzak_syad@hotmail.com
 	# Action: failed
-	if ( $_ =~ m/^Action:/ and $state == $S_RECIPIENT )
+	if ( $_ =~ m/^Action:/)
 	{
 		my @actionReason = split(':', $_);
 		my $reason = lc ( trim( $actionReason[1] ) );
 		$reasonCount{ $reason } = 0 if ( not $reasonCount{ $reason } );
 		$reasonCount{ $reason }++;
-		$state = $S_NONE;
+		if ( $reason =~ m/failed/ )
+		{
+			print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
+			$customerEmailCount++;
+		}
 	}
 	if ( $_ =~ m/^Final-Recipient:/ )
 	{
-		$state = $S_RECIPIENT;
+		# snag the address while we can, if Action turns out to be failed then we will use it.
 		my @finalRecipientAddress = split( ';', $_ );
 		$emailAddress = trim( $finalRecipientAddress[1] );
-		print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
-		$customerEmailCount++;
 		my @nameDomain = split( '\@', $emailAddress );
 		my $domain = lc( $nameDomain[1] );
 		$domainCount{ $domain } = 0 if ( not $domainCount{ $domain } );
@@ -124,8 +123,9 @@ while( ($k, $v) = each %reasonCount )
 	$mail .= "$k: $v.\n";
 	print "$k: $v.\n";
 }
-# Mail results.
-open( MAIL, "| /usr/bin/mailx -s 'Email report' ilsteam\@epl.ca" ) || warn "mailx failed: $!\n";
+
+
+open( MAIL, "| /usr/bin/mailx -s 'Email report' anisbet\@epl.ca" ) || warn "mailx failed: $!\n";
 if ( $customerEmailCount > $warningLimit )
 {
     print MAIL "There may be a problem with emails from EPLAPP. $customerEmailCount emails have bounced. Check NDR.log for more details.\n";
