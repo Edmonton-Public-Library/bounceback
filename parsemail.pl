@@ -19,14 +19,15 @@ use Getopt::Std;
 # without assuming any environment settings and we need to use sirsi's.
 ###############################################
 # *** Edit these to suit your environment *** #
-$ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
-$ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
+# $ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
+# $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
 ###############################################
 
 my $noteHeader       = "Undeliverable email address"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
 my $mailbox          = "/var/mail/sirsi";
 my $bouncedCustomers = "./NDR.log";
 my $warningLimit     = 200; # limit beyond which a warning is issued that we are getting too many bounced emails.
+my $stakeholders     = qq{ilsteam\@epl.ca}; # list of parties interested in the amount of bounced email.
 
 #
 # Message about this program and how to use it
@@ -47,6 +48,27 @@ example: $0
 
 EOF
     exit;
+}
+
+# Returns a timestamp for the log file only. The Database uses the default
+# time of writing the record for its timestamp in SQL. That was done to avoid
+# the snarl of differences between MySQL and Perl timestamp details.
+# Return: string of the current date and time as: 'yyyy-mm-dd hh:mm:ss'
+sub getDate
+{
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
+	$year += 1900;
+	$mon  += 1;
+	if ($mon < 10)
+	{
+		$mon = "0$mon";
+	}
+	if ($mday < 10)
+	{
+		$mday = "0$mday";
+	}
+	my $date = "$year-$mon-$mday";
+	return $date;
 }
 
 #
@@ -71,7 +93,7 @@ sub init
     usage() if ($opt{'x'});
 	if (not -s $mailbox) # file not exist or has zero size
 	{
-		print "No mail to process.\n";
+		print getDate()." no mail to process.\n";
 		exit 1;
 	}
 }
@@ -79,6 +101,7 @@ sub init
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
 open BOUNCED_CUSTOMERS, ">>$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
+print BOUNCED_CUSTOMERS "\n".getDate()."\n";
 my $emailAddress = "";
 my %reasonCount;
 my %domainCount;
@@ -88,13 +111,25 @@ while (<SIRSI_MAIL>)
 	# look for the header 
 	# Final-Recipient: RFC822; razzak_syad@hotmail.com
 	# Action: failed
-	if ( $_ =~ m/^Action:/)
+	# The syntax for the action-field is:
+	# action-field = "Action" ":" action-value
+	# action-value =
+	# "failed" / "delayed" / "delivered" / "relayed" / "expanded"
+	# The action-value may be spelled in any combination of upper and lower
+	# case characters.
+	# Moore & Vaudreuil           Standards Track                    [Page 16]
+	# RFC 3464             Delivery Status Notifications          January 2003
+	# "failed"    indicates that the message could not be delivered to the
+    # recipient.  The Reporting MTA has abandoned any attempts
+	# to deliver the message to this recipient.  No further
+	# notifications should be expected.
+	if ( $_ =~ m/^Action:/ )
 	{
-		my @actionReason = split(':', $_);
+		my @actionReason = split( ':', $_ );
 		my $reason = lc ( trim( $actionReason[1] ) );
 		$reasonCount{ $reason } = 0 if ( not $reasonCount{ $reason } );
 		$reasonCount{ $reason }++;
-		if ( $reason =~ m/failed/ )
+		if ( $reason =~ m/failed/i )
 		{
 			print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
 			$customerEmailCount++;
@@ -125,7 +160,9 @@ while( ($k, $v) = each %reasonCount )
 }
 
 
-my $stakeholders =  qq{ilsteam\@epl.ca};
+#
+# Compose email report.
+#
 if ( $customerEmailCount > $warningLimit )
 {
 	open( MAIL, "| /usr/bin/mailx -s 'Problem: Email report' $stakeholders" ) || warn "mailx failed: $!\n";
@@ -161,7 +198,7 @@ $k, $v
 	}
 }
 
-# Keep the mail? (Why would you?)
+# c - clean the mail file? (Why would you?)
 if ( $opt{'c'} )
 {
 	unlink($mailbox);

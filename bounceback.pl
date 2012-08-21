@@ -35,7 +35,7 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: $0 [-x][-u]
+	usage: $0 [-x][-u][-d<n>]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
@@ -43,7 +43,7 @@ Handles the arduous task of updating users accounts if their emails don't work.
  -u     : Actually update the records, don't just show me what you're doing.
  -x     : This (help) message.
 
-example: echo email_addresses.lst | $0 -u
+example: $0 -u
 
 EOF
     exit;
@@ -63,7 +63,7 @@ init();
 open LOG, ">>bounceback.log" or die "Error opening log file: $!\n";
 open PREUPDATEPATRON, ">>patron-flatuser.bck" or die "Error opening backup flat user: $!\n";
 my $logDate;
-open NDR_LOG, "<NDR.log" or die "Error opening NDR.log: $!\n";
+open NDR_LOG, "<NDR.log" or die "Exiting. No NDR.log to process.\n";
 my @emailList = <NDR_LOG>;
 close(NDR_LOG);
 if (@emailList > 200)
@@ -123,15 +123,18 @@ foreach my $NDRlogRecord (@emailList)
 		# 1) zero out the email. Now we have to remove the record not just empty it. There is a script that runs to clean empty email enties(?).
 		# `echo "$barCode||" | edituserved -b -eEMAIL -l"ADMIN|PCGUI-DISP" -t1`;
 		# 2) edit the note field to include previous notes and the requested message.
-		my $noteField = $noteHeader . " '$email'. $bounceReason. $logDate";
 		if ($opt{'d'})
 		{
 			open(BEFORE, ">beforeVED.txt") or die "Error: $!\n";
 			print BEFORE "$flatUser";
 			close(BEFORE);
+			print "email: '$email'\n";
+			print "bounceReason: '$bounceReason'\n";
+			print "logDate: '$logDate'\n";
 		}
+		my $noteField = $noteHeader . " '$email'. $bounceReason. $logDate";
 		my @VEDFields = split('\n', $flatUser);
-		@VEDFields = appendVED("NOTE", $noteField, @VEDFields);
+		@VEDFields = updateNoteVED($noteField, @VEDFields);
 		@VEDFields = deleteVED("EMAIL", @VEDFields);
 		$flatUser  = "";
 		foreach (@VEDFields)
@@ -145,11 +148,12 @@ foreach my $NDRlogRecord (@emailList)
 			close(AFTER);
 		}
 		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
+		print "$flatUser";
 		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
 		print LOG "User updated.\n";
 	}
 	# Exit early when debugging.
-	exit if ($opt{'d'} and $debugCounter == $opt{'d'});
+	last if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
 }
 close(LOG);
@@ -183,16 +187,33 @@ sub deleteVED
 # param:  field string - name of the VED record to append to, like 'NOTE'. Do not include the '.' at the beginning or
 #         or end of the field name. The field must start with the argument name exactly - case sensitive.
 # return: List - argument list returned with the specified VED record updated.
-sub appendVED
+sub updateNoteVED
 {
-	my ($field, $newValue, @VEDFields) = @_;
+	my ( $newValue, @VEDFields ) = @_;
+	my $field = "NOTE";
+	my $foundNote = 0;
 	my @newVED = ();
-	chomp($newValue);
-	while (@VEDFields)
+	chomp( $newValue );
+	while ( @VEDFields )
 	{
-		my $VEDField = shift(@VEDFields);
-		if ($VEDField =~ m/^\.($field)\./)
+		my $VEDField = shift( @VEDFields );
+		if ( $VEDField =~ m/^\.USER_XINFO_END\./ )
 		{
+			if ( not $foundNote )
+			{
+				# we got here without finding a note field so create one
+				push( @newVED, ".NOTE. |a$newValue" );
+			}
+			push( @newVED, $VEDField );
+			# reset to not foundNote because one email address will bring up many users
+			# each of which needs to have a note appended or added to their file. Once we 
+			# get to the USER_XINFO_END that signals the end of one of perhaps many patrons
+			# in this flat user record.
+			$foundNote = 0;
+		}
+		elsif ($VEDField =~ m/^\.($field)\./)
+		{
+			$foundNote = 1;
 			chomp($VEDField);
 			print "==$VEDField==\n" if ($opt{'d'});
 			my $tmp = shift(@VEDFields);
