@@ -100,7 +100,7 @@ sub init
 
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
-open BOUNCED_CUSTOMERS, ">>$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
+open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
 print BOUNCED_CUSTOMERS "\n".getDate()."\n";
 my $emailAddress = "";
 my %reasonCount;
