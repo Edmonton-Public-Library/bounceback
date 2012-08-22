@@ -25,7 +25,8 @@ $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
 ###############################################
 
 my $noteHeader = "Email bounced:"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
-my $date = `transdate -d-0`;
+my $ndr        = "NDR.log";
+my $date       = `transdate -d-0`;
 chomp($date);
 
 #
@@ -61,9 +62,9 @@ sub init
 
 init();
 open LOG, ">>bounceback.log" or die "Error opening log file: $!\n";
-open PREUPDATEPATRON, ">>patron-flatuser.bck" or die "Error opening backup flat user: $!\n";
+open PREUPDATEPATRON, ">>patron.flat" or die "Error opening backup flat user: $!\n";
 my $logDate;
-open NDR_LOG, "<NDR.log" or die "Exiting. No NDR.log to process.\n";
+open NDR_LOG, "<$ndr" or die "Exiting. No list of patrons emails to process.\n";
 my @emailList = <NDR_LOG>;
 close(NDR_LOG);
 if (@emailList > 200)
@@ -81,6 +82,7 @@ if (@emailList > 200)
 # advance this counter for every iteration of a client so the script will
 # exit when the count reaches the values specifed with the -d flag.
 my $debugCounter = 0;
+open USER_KEYS, ">>userkeys.lst" or die "Can't save user keys: $!\n";
 foreach my $NDRlogRecord (@emailList)
 {
 	chomp($NDRlogRecord);
@@ -94,17 +96,26 @@ foreach my $NDRlogRecord (@emailList)
 		print LOG "Processed on $logDate\n";
 		next;
 	}
-	# Split Jamie's log file into reason and address.
+	# Split log file into reason and address.
 	my ($bounceReason, $email) = split('\|', $NDRlogRecord);
 	if (not $email)
 	{
-		print "no email found in '$NDRlogRecord'\n";
+		print     "no email found in '$NDRlogRecord'\n";
+		print LOG "no email found in '$NDRlogRecord'\n";
 		next;
 	}
 	print "--($bounceReason, $email)--\n" if ($opt{'d'});
 	print LOG "--($bounceReason, $email)--\n";
 	# get the VED fields for this user via API.
-	my $flatUser = `echo "$email {EMAIL}"|selusertext|dumpflatuser`;
+	my $userKey = `echo "$email {EMAIL}"|selusertext|seluser -iU -oU -p"~LOSTCARD,MISSING,EPL-CANCEL,DISCARD"`;
+	if ( not $userKey )
+	{
+		print LOG "user key $userKey has a profile of either LOSTCARD,MISSING,EPL-CANCEL,DISCARD and will not be processed.\n";
+		next;
+	}
+	print USER_KEYS "$userKey";
+	print  "$userKey";
+	my $flatUser = `echo "$userKey" | dumpflatuser`;
 	if ( not $flatUser ) #my $message = "Email bounced: s.sabri@shaw.ca. Undeliverable 20120709";
 	{
 		print     "no patron found with email of '$email'.\n";
@@ -128,9 +139,6 @@ foreach my $NDRlogRecord (@emailList)
 			open(BEFORE, ">beforeVED.txt") or die "Error: $!\n";
 			print BEFORE "$flatUser";
 			close(BEFORE);
-			print "email: '$email'\n";
-			print "bounceReason: '$bounceReason'\n";
-			print "logDate: '$logDate'\n";
 		}
 		my $noteField = $noteHeader . " '$email'. $bounceReason. $logDate";
 		my @VEDFields = split('\n', $flatUser);
@@ -156,6 +164,9 @@ foreach my $NDRlogRecord (@emailList)
 	last if ($opt{'d'} and $debugCounter == $opt{'d'});
 	$debugCounter++;
 }
+close(USER_KEYS);
+# print LOG "removing $ndr\n";
+# unlink($ndr);
 close(LOG);
 close(PREUPDATEPATRON);
 1;
@@ -190,46 +201,17 @@ sub deleteVED
 sub updateNoteVED
 {
 	my ( $newValue, @VEDFields ) = @_;
-	my $field = "NOTE";
-	my $foundNote = 0;
 	my @newVED = ();
 	chomp( $newValue );
 	while ( @VEDFields )
 	{
 		my $VEDField = shift( @VEDFields );
-		if ( $VEDField =~ m/^\.USER_XINFO_END\./ )
+		if ( $VEDField =~ m/^\.USER_XINFO_BEGIN\./ )
 		{
-			if ( not $foundNote )
-			{
-				# we got here without finding a note field so create one
-				push( @newVED, ".NOTE. |a$newValue" );
-			}
 			push( @newVED, $VEDField );
-			# reset to not foundNote because one email address will bring up many users
-			# each of which needs to have a note appended or added to their file. Once we 
-			# get to the USER_XINFO_END that signals the end of one of perhaps many patrons
-			# in this flat user record.
-			$foundNote = 0;
-		}
-		elsif ($VEDField =~ m/^\.($field)\./)
-		{
-			$foundNote = 1;
-			chomp($VEDField);
-			print "==$VEDField==\n" if ($opt{'d'});
-			my $tmp = shift(@VEDFields);
-			while ($tmp !~ m/^\./)
-			{
-				$VEDField .= $tmp;
-				chomp($VEDField);
-				$tmp = shift(@VEDFields);
-			}
-			# now append the new content
-			$VEDField .= " ".$newValue;
-			push(@newVED, $VEDField);
-			# now put back the last shifted value that tested positive for another field marker.
-			push(@newVED, $tmp);
-			print     "APPEND: $VEDField\n" if ($opt{'d'});
-			print LOG "APPEND: $VEDField\n";
+			push( @newVED, ".NOTE. |a$newValue" );
+			print     "Appended: '$newValue'\n" if ($opt{'d'});
+			print LOG "Appended: '$newValue'\n";
 		}
 		else
 		{

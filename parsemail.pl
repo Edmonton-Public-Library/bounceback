@@ -106,6 +106,7 @@ my $emailAddress = "";
 my %reasonCount;
 my %domainCount;
 my $customerEmailCount = 0;
+my %uniquePatronEmails;
 while (<SIRSI_MAIL>)
 {
 	# look for the header 
@@ -131,10 +132,16 @@ while (<SIRSI_MAIL>)
 		$reasonCount{ $reason }++;
 		if ( $reason =~ m/failed/i )
 		{
-			print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
-			$customerEmailCount++;
+			# some emails come back with angle brackets.
+			$emailAddress =~ s/[<>]//g;
+			if ( not $uniquePatronEmails{ $emailAddress } )
+			{
+				$uniquePatronEmails{ $emailAddress } = 1;
+				print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
+			}
 		}
 	}
+	# capture every Final-Recipient for statistics reporting.
 	if ( $_ =~ m/^Final-Recipient:/ )
 	{
 		# snag the address while we can, if Action turns out to be failed then we will use it.
@@ -146,7 +153,7 @@ while (<SIRSI_MAIL>)
 		$domainCount{ $domain }++;
 	}
 }
-
+$customerEmailCount = scalar(keys(%uniquePatronEmails));
 close BOUNCED_CUSTOMERS;
 close SIRSI_MAIL;
 
