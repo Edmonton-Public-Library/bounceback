@@ -132,8 +132,6 @@ while (<SIRSI_MAIL>)
 		$reasonCount{ $reason }++;
 		if ( $reason =~ m/failed/i )
 		{
-			# some emails come back with angle brackets.
-			$emailAddress =~ s/[<>]//g;
 			if ( not $uniquePatronEmails{ $emailAddress } )
 			{
 				$uniquePatronEmails{ $emailAddress } = 1;
@@ -147,6 +145,10 @@ while (<SIRSI_MAIL>)
 		# snag the address while we can, if Action turns out to be failed then we will use it.
 		my @finalRecipientAddress = split( ';', $_ );
 		$emailAddress = trim( $finalRecipientAddress[1] );
+		# some emails come back with angle brackets.
+		print "BEFORE: '$emailAddress'\n";
+		$emailAddress =~ s/[<>]//g;
+		print " AFTER: '$emailAddress'\n";
 		my @nameDomain = split( '\@', $emailAddress );
 		my $domain = lc( $nameDomain[1] );
 		$domainCount{ $domain } = 0 if ( not $domainCount{ $domain } );
