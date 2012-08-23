@@ -8,7 +8,7 @@
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Date:    July 9, 2012
-# Rev:     0.0 - July 9, 2012 Develop
+# Rev:     0.2 - August 23, 2012 Initial release
 ########################################################################
 # TODO: there is a '.forward' file that is sending all this stuff to ILS Notices. We should remove that so the mail ends up in /var/mail/sirsi and process mail from there. then we don't have to worry about spam et al.
 use strict;
@@ -165,8 +165,8 @@ foreach my $NDRlogRecord (@emailList)
 	$debugCounter++;
 }
 close(USER_KEYS);
-# print LOG "removing $ndr\n";
-# unlink($ndr);
+print LOG "removing $ndr\n";
+unlink($ndr);
 close(LOG);
 close(PREUPDATEPATRON);
 1;
