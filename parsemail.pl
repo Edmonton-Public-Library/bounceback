@@ -96,6 +96,17 @@ sub init
 		print getDate()." no mail to process.\n";
 		exit 1;
 	}
+	if ( -s $bouncedCustomers )
+	{
+		print "'$bouncedCustomers' exists.\nYesterday's list may not have been processed. Do you want to over write it? <yes|no> ";
+		my $answer;
+		chomp ($answer = <>);
+		if ($answer !~ m/^y/i)
+		{
+			print "exiting.\n";
+			exit 0;
+		}
+	}
 }
 
 init();
@@ -128,7 +139,6 @@ while (<SIRSI_MAIL>)
 	{
 		my @actionReason = split( ':', $_ );
 		my $reason = lc ( trim( $actionReason[1] ) );
-		$reasonCount{ $reason } = 0 if ( not $reasonCount{ $reason } );
 		$reasonCount{ $reason }++;
 		if ( $reason =~ m/failed/i )
 		{
@@ -146,12 +156,9 @@ while (<SIRSI_MAIL>)
 		my @finalRecipientAddress = split( ';', $_ );
 		$emailAddress = trim( $finalRecipientAddress[1] );
 		# some emails come back with angle brackets.
-		print "BEFORE: '$emailAddress'\n";
 		$emailAddress =~ s/[<>]//g;
-		print " AFTER: '$emailAddress'\n";
 		my @nameDomain = split( '\@', $emailAddress );
 		my $domain = lc( $nameDomain[1] );
-		$domainCount{ $domain } = 0 if ( not $domainCount{ $domain } );
 		$domainCount{ $domain }++;
 	}
 }
