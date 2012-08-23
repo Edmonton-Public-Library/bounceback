@@ -157,7 +157,10 @@ foreach my $NDRlogRecord (@emailList)
 		}
 		# reload the user Replace address field, Replace extended information but DON'T create user if they don't exist.
 		print "$flatUser";
-		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu`;
+		# -aR replace address fields, -bR replace extended fields, -mu just update user never create, -n don't reference BRS
+		# This switch is necessary so that the loadflatuser doesn't check for ACTIVE_IDs for the customer, then failing if they
+		# have them. -n does create an entry in /s/sirsi/Unicorn/Database/Useredit, so touchkeys is not required.
+		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu -n`;
 		print LOG "User updated.\n";
 	}
 	# Exit early when debugging.
