@@ -9,20 +9,13 @@
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Date:    July 13, 2012
-# Rev:     0.0 - July 13, 2012 Develop
+# Rev:     0.2 - August 23, 2012 Develop
 ########################################################################
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
 
-# Environment setup required by cron to run script because its daemon runs
-# without assuming any environment settings and we need to use sirsi's.
-###############################################
-# *** Edit these to suit your environment *** #
-# $ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
-# $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
-###############################################
-
+my $mailFile         = "mail.txt";
 my $noteHeader       = "Undeliverable email address"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
 my $mailbox          = "/var/mail/sirsi";
 my $bouncedCustomers = "./NDR.log";
@@ -36,11 +29,10 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: $0 [-x][-c][-d]
+	usage: $0 [-x][-c]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
 
- -d : Diagnostics.
  -c : Clean /var/mail/sirsi file.
  -x : This (help) message.
 
@@ -166,57 +158,59 @@ $customerEmailCount = scalar(keys(%uniquePatronEmails));
 close BOUNCED_CUSTOMERS;
 close SIRSI_MAIL;
 
-# mail stats to andrew.
-my ($k, $v);
-my $mail = "";
-while( ($k, $v) = each %reasonCount ) 
-{
-	$mail .= "$k: $v.\n";
-	print "$k: $v.\n";
-}
-
-
-#
-# Compose email report.
-#
-if ( $customerEmailCount > $warningLimit )
-{
-	open( MAIL, "| /usr/bin/mailx -s 'Problem: Email report' $stakeholders" ) || warn "mailx failed: $!\n";
-    print MAIL "There may be a problem with emails from EPLAPP. $customerEmailCount emails have bounced. Check NDR.log for more details.\n";
-	print MAIL "$mail\n";
-	close( MAIL );
-}
-elsif ( $customerEmailCount == 0 )
-{
-	open( MAIL, "| /usr/bin/mailx -s 'No bounced email to report' $stakeholders" ) || warn "mailx failed: $!\n";
-	print MAIL "There are no bounced messages.\n";
-	close( MAIL );
-}
-else
-{
-	open( MAIL, "| /usr/bin/mailx -s 'Email report' $stakeholders" ) || warn "mailx failed: $!\n";
-	print MAIL "$mail\n";
-	close( MAIL );
-}
-
-# Diagnostics
-if ( $opt{'d'} )
-{
-	print "Domains:\n";
-	format STATS =
-@<<<<<<<<<<<<<<<<<<<<<< @####
-$k, $v
-.
-	$~ = "STATS";
-	while( ($k, $v) = ( each %domainCount ) )
-	{
-		write;
-	}
-}
-
 # c - clean the mail file? (Why would you?)
 if ( $opt{'c'} )
 {
 	unlink($mailbox);
 }
+
+#
+# Compose email report.
+#
+open( MAIL, ">$mailFile" ) or die "Unable to send mail report because: $!\n";
+if ( $customerEmailCount > $warningLimit )
+{
+    print MAIL "There may be a problem with emails from EPLAPP.\n$customerEmailCount emails have bounced\nCheck $bouncedCustomers for more details.\n";
+}
+elsif ( $customerEmailCount == 0 )
+{
+	print MAIL "There are no bounced messages.\n";
+}
+
+# mail stats to andrew.
+my ($k, $v, $total);
+format MAIL =
+@####  @<<<<<<<<<<<<<<<<<<<<<<
+$v, $k
+.
+format TOTAL =
+-----
+@####  total
+$total
+.
+# mail stats to andrew.
+print MAIL "\nBasic metrics:\n";
+while( ($k, $v) = each %reasonCount ) 
+{
+	write MAIL;
+}
+print MAIL "\nDomains:\n";
+while( ($k, $v) = ( each %domainCount ) )
+{
+	write MAIL;
+	$total += $v;
+}
+select(MAIL);
+$~ = "TOTAL";
+write MAIL;
+close( MAIL );
+# my @mailContent;
+open( MAIL, "<$mailFile" ) or die "Unable to send mail report because: $!\n";
+# @mailContent = <MAIL>;
+my $mail = join( "", <MAIL> );
+close( MAIL );
+# my $mail = join( "", @mailContent );
+open( MAILER, "| /usr/bin/mailx -s 'Bounced email report' $stakeholders" ) or warn "Unable to send mail report because: $!\n";
+print MAILER "$mail\n\nSigned: parsemail.pl\n";
+close( MAILER );
 1;
