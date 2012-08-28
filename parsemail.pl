@@ -16,11 +16,12 @@ use vars qw/ %opt /;
 use Getopt::Std;
 
 my $mailFile         = "mail.txt";
-my $noteHeader       = "Undeliverable email address"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
+my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
 my $mailbox          = "/var/mail/sirsi";
 my $bouncedCustomers = "./NDR.log";
-my $warningLimit     = 200; # limit beyond which a warning is issued that we are getting too many bounced emails.
+my $warningLimit     = 100; # limit beyond which a warning is issued that we are getting too many bounced emails.
 my $stakeholders     = qq{ilsteam\@epl.ca}; # list of parties interested in the amount of bounced email.
+my $dierWarningSent  = 0; # if 0 no message sent yet, if true then suppress additional warnings about blacklisting.
 
 #
 # Message about this program and how to use it
@@ -101,48 +102,57 @@ sub init
 	}
 }
 
+#
+# Sends recipients messages via email.
+# param:  subject string
+# param:  recipents emails string
+# param:  message string
+# return:
+#
+sub sendMail
+{
+	my ($subject, $recipients, $message) = @_;
+	open( MAILER, "| /usr/bin/mailx -s '$subject' $recipients" ) or warn "Unable to send mail report because: $!\n";
+	print MAILER "$message\n\nSigned: parsemail.pl on EPLAPP\n";
+	close( MAILER );
+}
+
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
 open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
 print BOUNCED_CUSTOMERS "\n".getDate()."\n";
-my $emailAddress = "";
+my $emailAddress    = "";
+my %rejectionNotice = ();
+$rejectionNotice{ 571 } = qq{EPL has been blacklisted by recipients domain};
+$rejectionNotice{ 450 } = qq{Patron's mailbox is unreachable and may be corrupted, offline indefinitely, or EPL has been blacklisted};
+$rejectionNotice{ 554 } = qq{Recipient server believes EPL's email is spam};
+$rejectionNotice{ 553 } = qq{Mailbox address is invalid};
+$rejectionNotice{ 551 } = qq{Relay denied, recipient's ISP needs to allow EPL};
+$rejectionNotice{ 550 } = qq{Patron's Mailbox is either disabled, suspended, blocking EPL with a firewall, or does not exist};
+$rejectionNotice{ 541 } = qq{Patron's firewall has rejected EPL's mail};
+$rejectionNotice{ 521 } = qq{Patron's email account is disabled};
+$rejectionNotice{ 513 } = qq{Recipent's mail server thinks the address is incorrectly formatted. Check for invalid characters};
+$rejectionNotice{ 512 } = qq{The host server for the recipient’s domain name cannot be found};
+$rejectionNotice{ 510 } = qq{Bad email address. Confirm spelling};
+$rejectionNotice{ 511 } = qq{Bad email address. Confirm spelling};
+$rejectionNotice{ 422 } = qq{Patron's mail box is full};
+$rejectionNotice{ 552 } = qq{Mail aborted because mailbox is full};
+$rejectionNotice{ 111 } = qq{Patron's mail server refused our connection request};
+
 my %reasonCount;
 my %domainCount;
 my $customerEmailCount = 0;
 my %uniquePatronEmails;
+# Email header ordering:
+# Arrival-Date: Tue, 28 Aug 2012 05:18:37 -0700
+# Final-Recipient: rfc822;news.hotmail8@gmail.com
+# Action: failed
+# Status: 5.2.1
+# Diagnostic-Code: smtp;550 5.2.1 The email account that you tried to reach is disabled. c16si8407304anl.34
 while (<SIRSI_MAIL>)
 {
-	# look for the header 
-	# Final-Recipient: RFC822; razzak_syad@hotmail.com
-	# Action: failed
-	# The syntax for the action-field is:
-	# action-field = "Action" ":" action-value
-	# action-value =
-	# "failed" / "delayed" / "delivered" / "relayed" / "expanded"
-	# The action-value may be spelled in any combination of upper and lower
-	# case characters.
-	# Moore & Vaudreuil           Standards Track                    [Page 16]
-	# RFC 3464             Delivery Status Notifications          January 2003
-	# "failed"    indicates that the message could not be delivered to the
-    # recipient.  The Reporting MTA has abandoned any attempts
-	# to deliver the message to this recipient.  No further
-	# notifications should be expected.
-	if ( $_ =~ m/^Action:/ )
-	{
-		my @actionReason = split( ':', $_ );
-		my $reason = lc ( trim( $actionReason[1] ) );
-		$reasonCount{ $reason }++;
-		if ( $reason =~ m/failed/i )
-		{
-			if ( not $uniquePatronEmails{ $emailAddress } )
-			{
-				$uniquePatronEmails{ $emailAddress } = 1;
-				print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
-			}
-		}
-	}
 	# capture every Final-Recipient for statistics reporting.
-	if ( $_ =~ m/^Final-Recipient:/ )
+	if ( $_ =~ m/^Final-Recipient:/i )
 	{
 		# snag the address while we can, if Action turns out to be failed then we will use it.
 		my @finalRecipientAddress = split( ';', $_ );
@@ -153,8 +163,44 @@ while (<SIRSI_MAIL>)
 		my $domain = lc( $nameDomain[1] );
 		$domainCount{ $domain }++;
 	}
+	if ( $_ =~ m/^Status:/i )
+	{
+		my @statusReason = split( ':', $_ );
+		$statusReason[1] =~ s/\.//g;
+		$statusReason[1] =~ s/^\s+//g;
+		my $status = substr($statusReason[1], 0, 3);
+		# print "---->$status<-----\n";
+		if ( $rejectionNotice{ $status } )
+		{
+			# here we send an early warning message if the status is about being blacklisted.
+			if ( $status == 571 )
+			{
+				if ( not $dierWarningSent )
+				{
+					my $msg = "A patron's email ($emailAddress) was returned because we was blacklisted, please investigate.";
+					sendMail( "***Blacklist Warning***", "anisbet\@epl.ca", $msg );
+				}
+				$dierWarningSent++;
+			}
+			else # User specific bounce problem
+			{
+				$noteHeader = $rejectionNotice{ $status };
+				# don't add address if this is the second message that bounced.
+				if ( not $uniquePatronEmails{ $emailAddress } )
+				{
+					$uniquePatronEmails{ $emailAddress } = 1;
+					print BOUNCED_CUSTOMERS "$noteHeader|$emailAddress\n";
+				}
+			}
+			$reasonCount{ $rejectionNotice{ $status } }++;
+		}
+		else # unknown probably harmless status was found. Don't edit patron account.
+		{
+			$reasonCount{ $status }++;
+		}
+	}
 }
-$customerEmailCount = scalar(keys(%uniquePatronEmails));
+$customerEmailCount = scalar( keys( %uniquePatronEmails ) );
 close BOUNCED_CUSTOMERS;
 close SIRSI_MAIL;
 
@@ -180,7 +226,7 @@ elsif ( $customerEmailCount == 0 )
 # mail stats to andrew.
 my ($k, $v, $total);
 format MAIL =
-@####  @<<<<<<<<<<<<<<<<<<<<<<
+@####  @<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 $v, $k
 .
 format TOTAL =
@@ -194,7 +240,7 @@ while( ($k, $v) = each %reasonCount )
 {
 	write MAIL;
 }
-print MAIL "\nDomains:\n";
+print MAIL "\nDomains mailed:\n";
 while( ($k, $v) = ( each %domainCount ) )
 {
 	write MAIL;
@@ -210,7 +256,5 @@ open( MAIL, "<$mailFile" ) or die "Unable to send mail report because: $!\n";
 my $mail = join( "", <MAIL> );
 close( MAIL );
 # my $mail = join( "", @mailContent );
-open( MAILER, "| /usr/bin/mailx -s 'Bounced email report' $stakeholders" ) or warn "Unable to send mail report because: $!\n";
-print MAILER "$mail\n\nSigned: parsemail.pl\n";
-close( MAILER );
+sendMail( "Bounced email report", $stakeholders, $mail);
 1;
