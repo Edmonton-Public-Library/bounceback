@@ -22,7 +22,7 @@ my $bouncedCustomers = "./NDR.log";
 my $warningLimit     = 100; # limit beyond which a warning is issued that we are getting too many bounced emails.
 my $stakeholders     = qq{ilsteam\@epl.ca}; # list of parties interested in the amount of bounced email.
 my $dierWarningSent  = 0; # if 0 no message sent yet, if true then suppress additional warnings about blacklisting.
-
+my $failedAddresses  = "./non_fatal_fail.log"; # Log of delivery failures that are not serious, but may be diagnostically helpful
 #
 # Message about this program and how to use it
 #
@@ -121,6 +121,8 @@ init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
 open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
 print BOUNCED_CUSTOMERS "\n".getDate()."\n";
+open POTENTIAL_PROBLEMS, ">>$failedAddresses" or die "Error opening $failedAddresses: $!\n";
+print POTENTIAL_PROBLEMS "\n".getDate()."\n";
 my $emailAddress    = "";
 my %rejectionNotice = ();
 $rejectionNotice{ 571 } = qq{EPL has been blacklisted by recipients domain};
@@ -135,10 +137,12 @@ $rejectionNotice{ 513 } = qq{Recipient's mail server thinks the address is incor
 $rejectionNotice{ 512 } = qq{The host server for the recipient’s domain name cannot be found};
 $rejectionNotice{ 510 } = qq{Bad email address. Confirm spelling};
 $rejectionNotice{ 511 } = qq{Bad email address. Confirm spelling};
-$rejectionNotice{ 422 } = qq{Patron's mail box is full};
-$rejectionNotice{ 552 } = qq{Mail aborted because mailbox is full};
 $rejectionNotice{ 111 } = qq{Patron's mail server refused our connection request};
-
+my %rejectionNoticeNotSerious = ();
+$rejectionNoticeNotSerious{ 447 } = qq{Patron's mail server timed out during delivery};
+$rejectionNoticeNotSerious{ 500 } = qq{Patron server's firewall or anti-virus software may be interfering with mail delivery};
+$rejectionNoticeNotSerious{ 422 } = qq{Patron's mail box is full};
+$rejectionNoticeNotSerious{ 552 } = qq{Mail aborted because mailbox is full};
 my %reasonCount;
 my %domainCount;
 my $customerEmailCount = 0;
@@ -194,6 +198,13 @@ while (<SIRSI_MAIL>)
 			}
 			$reasonCount{ $rejectionNotice{ $status } }++;
 		}
+		# not serious list; these get noted but patron's accounts are not updated.
+		elsif ( $rejectionNoticeNotSerious{ $status } )
+		{
+			$noteHeader = $rejectionNoticeNotSerious{ $status };
+			$reasonCount{ $rejectionNoticeNotSerious{ $status } }++;
+			print POTENTIAL_PROBLEMS "$noteHeader|$emailAddress\n";
+		}
 		else # unknown probably harmless status was found. Don't edit patron account.
 		{
 			$reasonCount{ $status }++;
@@ -202,6 +213,7 @@ while (<SIRSI_MAIL>)
 }
 $customerEmailCount = scalar( keys( %uniquePatronEmails ) );
 close BOUNCED_CUSTOMERS;
+close POTENTIAL_PROBLEMS;
 close SIRSI_MAIL;
 
 # c - clean the mail file? (Why would you?)
