@@ -9,12 +9,17 @@
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Date:    July 13, 2012
-# Rev:     0.2 - August 23, 2012 Develop
+# Rev:     0.5 - 2012-08-29 09:28:48 Added non-serious logging for diagnostics of patron mail.
+# Rev:     0.4 - 2012-08-28 15:27:00 Fixed spelling and wording in  messages.
+# Rev:     0.3 - 2012-08-23 12:53:31 Fixed bug that failed to load flat user if they had ACTIVE or INACTIVE ids on record.
+# Rev:     0.2 - 2012-08-22 15:37:46 Initial release.
+# Rev:     0.1 - 2012-08-13 14:44:26 Make file modified to include uniqbounce.pl since all can be done on server.
+# Rev:     0.0 - 2012-07-09 14:11:07 Initialization of the project.
 ########################################################################
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
-
+my $VERSION          = 0.5;
 my $mailFile         = "mail.txt";
 my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
 my $mailbox          = "/var/mail/sirsi";
@@ -23,6 +28,7 @@ my $warningLimit     = 100; # limit beyond which a warning is issued that we are
 my $stakeholders     = qq{ilsteam\@epl.ca}; # list of parties interested in the amount of bounced email.
 my $dierWarningSent  = 0; # if 0 no message sent yet, if true then suppress additional warnings about blacklisting.
 my $failedAddresses  = "./non_fatal_fail.log"; # Log of delivery failures that are not serious, but may be diagnostically helpful
+my @exceptionAddresses = qw( ils_notice@epl.ca ilsteam@epl.ca ); # list of addresses not to worry about during mail handling.
 #
 # Message about this program and how to use it
 #
@@ -31,13 +37,15 @@ sub usage()
     print STDERR << "EOF";
 
 	usage: $0 [-x][-c]
-	
+
 Handles the arduous task of updating users accounts if their emails don't work.
 
  -c : Clean /var/mail/sirsi file.
  -x : This (help) message.
 
 example: $0
+
+Version: $VERSION
 
 EOF
     exit;
@@ -117,6 +125,20 @@ sub sendMail
 	close( MAILER );
 }
 
+#
+# Returns true if the address is on the exceptions list and false otherwise
+# param:  email address string - like ils_notice@epl.ca
+# return: 1 if on list and 0 otherwise.
+sub isOnExceptionList
+{
+	my ( $address ) = $_[0];
+	foreach my $exceptionalAddress ( @exceptionAddresses )
+	{
+		return 1 if ( lc( $exceptionalAddress ) eq lc( $address ) );
+	}
+	return 0;
+}
+
 init();
 open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
 open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
@@ -181,6 +203,11 @@ while (<SIRSI_MAIL>)
 			# here we send an early warning message if the status is about being blacklisted.
 			if ( $status == 571 )
 			{
+				# TODO add exceptions list here. ils_notice@epl.ca should not trigger an email or account emial deletion ever.
+				if ( isOnExceptionList( $emailAddress ) )
+				{
+					next;
+				}
 				if ( not $dierWarningSent )
 				{
 					my $msg = "A patron's email ($emailAddress) was returned because we was blacklisted, please investigate.";
