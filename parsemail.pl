@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-########################################################################
+#########################################################################################################################
 # Purpose: Parses the /var/mail/sirsi file making note of accounts that 
 #          have bounced and reporting strange trends like getting too
 #          many bouncebacks which might indicate we have been blacklisted.
@@ -9,17 +9,18 @@
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Date:    July 13, 2012
+# Rev:     0.6 - 2012-09-07 08:28:00 Saves unknown error codes to the non-fatal log.
 # Rev:     0.5 - 2012-08-29 09:28:48 Added non-serious logging for diagnostics of patron mail.
 # Rev:     0.4 - 2012-08-28 15:27:00 Fixed spelling and wording in  messages.
 # Rev:     0.3 - 2012-08-23 12:53:31 Fixed bug that failed to load flat user if they had ACTIVE or INACTIVE ids on record.
 # Rev:     0.2 - 2012-08-22 15:37:46 Initial release.
 # Rev:     0.1 - 2012-08-13 14:44:26 Make file modified to include uniqbounce.pl since all can be done on server.
 # Rev:     0.0 - 2012-07-09 14:11:07 Initialization of the project.
-########################################################################
+##########################################################################################################################
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
-my $VERSION          = 0.5;
+my $VERSION          = 0.6;
 my $mailFile         = "mail.txt";
 my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
 my $mailbox          = "/var/mail/sirsi";
@@ -234,9 +235,10 @@ while (<SIRSI_MAIL>)
 			$reasonCount{ $rejectionNoticeNotSerious{ $status } }++;
 			print POTENTIAL_PROBLEMS "$noteHeader|$emailAddress\n";
 		}
-		else # unknown probably harmless status was found. Don't edit patron account.
+		else # unknown probably harmless status was found. Don't edit patron account, but do record it to non-fatal.
 		{
 			$reasonCount{ $status }++;
+			print POTENTIAL_PROBLEMS "unknown error: '$status'|$emailAddress\n";
 		}
 	}
 }
