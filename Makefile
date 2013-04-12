@@ -2,7 +2,7 @@
 #SERVER=edpl-t.library.ualberta.ca
 SERVER=eplapp.library.ualberta.ca
 USER=sirsi
-REMOTE=~/Unicorn/EPLwork/anisbet/mail/
+REMOTE=~/Unicorn/EPLwork/anisbet/Mail/
 LOCAL=~/projects/bounceback/
 APP=bounceback.pl
 APP2=parsemail.pl
