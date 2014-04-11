@@ -26,10 +26,10 @@ my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]" 
 my $mailbox          = "/var/mail/sirsi";
 my $bouncedCustomers = "./NDR.log";
 my $warningLimit     = 100; # limit beyond which a warning is issued that we are getting too many bounced emails.
-my $stakeholders     = qq{ilsteam\@epl.ca}; # list of parties interested in the amount of bounced email.
+my $stakeholders     = qq{ilsadmins\@epl.ca}; # list of parties interested in the amount of bounced email.
 my $dierWarningSent  = 0; # if 0 no message sent yet, if true then suppress additional warnings about blacklisting.
 my $failedAddresses  = "./non_fatal_fail.log"; # Log of delivery failures that are not serious, but may be diagnostically helpful
-my @exceptionAddresses = qw( ils_notice@epl.ca ilsteam@epl.ca ); # list of addresses not to worry about during mail handling.
+my @exceptionAddresses = qw( ils_notice@epl.ca ilsadmins@epl.ca ); # list of addresses not to worry about during mail handling.
 #
 # Message about this program and how to use it
 #
