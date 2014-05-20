@@ -62,7 +62,7 @@ file to check their accounts.
  -d : Domain that is blocking.
  -x : This (help) message.
 
-example: $0
+example: $0 -d"liveoak.com"
 
 Version: $VERSION
 

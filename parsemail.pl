@@ -4,11 +4,30 @@
 #          have bounced and reporting strange trends like getting too
 #          many bouncebacks which might indicate we have been blacklisted.
 # Method:  Open /var/mail/sirsi, look for error notice in header, write 
-#          explaination and address to file. Keep track of stats and
+#          explanation and address to file. Keep track of stats and
 #          report them, including total bounced by reason.
+# Parses bounced mail on Unix systems, reporting email address and reason.
+#    Copyright (C) 2012, 2013  Andrew Nisbet Edmonton Public Library
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA 02110-1301, USA.
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
+# Dependencies: Uses xmail, but can be modified to use any Unix mailer, or none at all.
 # Date:    July 13, 2012
+# Rev:     0.7 - 2014-05-20 Clean up for broader distribution.
 # Rev:     0.6 - 2012-09-07 08:28:00 Saves unknown error codes to the non-fatal log.
 # Rev:     0.5 - 2012-08-29 09:28:48 Added non-serious logging for diagnostics of patron mail.
 # Rev:     0.4 - 2012-08-28 15:27:00 Fixed spelling and wording in  messages.
@@ -20,16 +39,16 @@
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
-my $VERSION          = 0.6;
-my $mailFile         = "mail.txt";
-my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
-my $mailbox          = "/var/mail/sirsi";
-my $bouncedCustomers = "./NDR.log";
+my $VERSION          = 0.7;
+my $mailFile         = "mail.txt"; # Name of the report file that will be sent to the ILS admin.
+my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]".
+my $mailbox          = "/var/mail/sirsi"; # name of the bounced mail file for the sirsi user.
+my $bouncedCustomers = "NDR.log"; # File that contains the bounced emails and reasons: <comment string>|<email address>
 my $warningLimit     = 100; # limit beyond which a warning is issued that we are getting too many bounced emails.
-my $stakeholders     = qq{ilsadmins\@epl.ca}; # list of parties interested in the amount of bounced email.
+my $stakeholders     = qq{ilsadmins\@example.ca}; # list of parties interested in the amount of bounced email.
 my $dierWarningSent  = 0; # if 0 no message sent yet, if true then suppress additional warnings about blacklisting.
-my $failedAddresses  = "./non_fatal_fail.log"; # Log of delivery failures that are not serious, but may be diagnostically helpful
-my @exceptionAddresses = qw( ils_notice@epl.ca ilsadmins@epl.ca ); # list of addresses not to worry about during mail handling.
+my $failedAddresses  = "non_fatal_fail.log"; # Log of delivery failures that are not serious, but may be diagnostically helpful
+my @exceptionAddresses = qw( ils_notice@example.com ilsadmins@example.com ); # list of addresses not to worry about during mail handling.
 #
 # Message about this program and how to use it
 #
@@ -40,11 +59,20 @@ sub usage()
 	usage: $0 [-x][-c]
 
 Handles the arduous task of updating users accounts if their emails don't work.
+This script parses the bounced mail for the sirsi account on a Unix system. Please
+note that you may need to change the location of the bounced mail file in this
+script and the destination addresses of the ILS administrator.
 
- -c : Clean /var/mail/sirsi file.
+The script reads and parses out the bounced accounts and reasons and creates a 
+report in the current working directory. Once done, and if the -c flag is used
+it will delete the mail file. The output file is then can be used for reporting
+or as input for bounceback.pl, which will modify patron records to include information
+about why they no longer receive mail from the library, and the date that occured.
+
+ -c : Clean '$mailbox' file.
  -x : This (help) message.
 
-example: $0
+example: $0 -c
 
 Version: $VERSION
 
@@ -52,9 +80,9 @@ EOF
     exit;
 }
 
-# Returns a timestamp for the log file only. The Database uses the default
-# time of writing the record for its timestamp in SQL. That was done to avoid
-# the snarl of differences between MySQL and Perl timestamp details.
+# Returns a time stamp for the log file only. The Database uses the default
+# time of writing the record for its time stamp in SQL. That was done to avoid
+# the snarl of differences between MySQL and Perl time stamp details.
 # Return: string of the current date and time as: 'yyyy-mm-dd hh:mm:ss'
 sub getDate
 {
@@ -74,7 +102,7 @@ sub getDate
 }
 
 #
-# Trim function to remove whitespace from the start and end of the string.
+# Trim function to remove white space from the start and end of the string.
 # param:  string to trim.
 # return: string without leading or trailing spaces.
 sub trim($)
@@ -95,8 +123,8 @@ sub init
     usage() if ($opt{'x'});
 	if (not -s $mailbox) # file not exist or has zero size
 	{
-		print getDate()." no mail to process.\n";
-		exit 1;
+		print getDate()." **Error: no mail to process in '$mailbox'. Are you sure that's where its located?\n";
+		usage();
 	}
 	if ( -s $bouncedCustomers )
 	{
@@ -128,7 +156,7 @@ sub sendMail
 
 #
 # Returns true if the address is on the exceptions list and false otherwise
-# param:  email address string - like ils_notice@epl.ca
+# param:  email address string - like ils_notice@example.ca
 # return: 1 if on list and 0 otherwise.
 sub isOnExceptionList
 {
@@ -148,13 +176,13 @@ open POTENTIAL_PROBLEMS, ">>$failedAddresses" or die "Error opening $failedAddre
 print POTENTIAL_PROBLEMS "\n".getDate()."\n";
 my $emailAddress    = "";
 my %rejectionNotice = ();
-$rejectionNotice{ 571 } = qq{EPL has been blacklisted by recipients domain};
-$rejectionNotice{ 450 } = qq{Patron's mailbox is unreachable and may be corrupted, offline indefinitely, or EPL blacklisted by domain};
-$rejectionNotice{ 554 } = qq{Recipient's server believes EPL's email is spam};
+$rejectionNotice{ 571 } = qq{our domain has been blacklisted by recipients domain};
+$rejectionNotice{ 450 } = qq{Patron's mailbox is unreachable and may be corrupted, offline indefinitely, or our domain blacklisted by domain};
+$rejectionNotice{ 554 } = qq{Recipient's server believes our domain's email is spam};
 $rejectionNotice{ 553 } = qq{Mailbox address is invalid};
-$rejectionNotice{ 551 } = qq{Relay denied, recipient's ISP needs to allow EPL};
-$rejectionNotice{ 550 } = qq{Patron's Mailbox is either disabled, suspended, firewall-blocking EPL, or does not exist};
-$rejectionNotice{ 541 } = qq{Patron's firewall has rejected EPL's mail};
+$rejectionNotice{ 551 } = qq{Relay denied, recipient's ISP needs to allow our domain};
+$rejectionNotice{ 550 } = qq{Patron's Mailbox is either disabled, suspended, firewall-blocking our domain, or does not exist};
+$rejectionNotice{ 541 } = qq{Patron's firewall has rejected our domain's mail};
 $rejectionNotice{ 521 } = qq{Patron's email account is disabled};
 $rejectionNotice{ 513 } = qq{Recipient's mail server thinks the address is incorrectly formatted. Check for invalid characters};
 $rejectionNotice{ 512 } = qq{The host server for the recipient’s domain name cannot be found};
@@ -190,6 +218,7 @@ while (<SIRSI_MAIL>)
 		$emailAddress =~ s/[<>]//g;
 		my @nameDomain = split( '\@', $emailAddress );
 		my $domain = lc( $nameDomain[1] );
+		# Keep a count of all the domains we handled today.
 		$domainCount{ $domain }++;
 	}
 	if ( $_ =~ m/^Status:/i )
@@ -198,13 +227,13 @@ while (<SIRSI_MAIL>)
 		$statusReason[1] =~ s/\.//g;
 		$statusReason[1] =~ s/^\s+//g;
 		my $status = substr($statusReason[1], 0, 3);
-		# print "---->$status<-----\n";
+		print "---->$status<-----\n" if ( $opt{'d'} );
 		if ( $rejectionNotice{ $status } )
 		{
 			# here we send an early warning message if the status is about being blacklisted.
 			if ( $status == 571 )
 			{
-				# TODO add exceptions list here. ils_notice@epl.ca should not trigger an email or account emial deletion ever.
+				# TODO add exceptions list here. ils_notice@example.ca should not trigger an email or account email deletion ever.
 				if ( isOnExceptionList( $emailAddress ) )
 				{
 					next;
@@ -212,7 +241,7 @@ while (<SIRSI_MAIL>)
 				if ( not $dierWarningSent )
 				{
 					my $msg = "A patron's email ($emailAddress) was returned because we was blacklisted, please investigate.";
-					sendMail( "***Blacklist Warning***", "anisbet\@epl.ca", $msg );
+					sendMail( "***Blacklist Warning***", "ilsadmin\@example.ca", $msg );
 				}
 				$dierWarningSent++;
 			}
@@ -228,7 +257,7 @@ while (<SIRSI_MAIL>)
 			}
 			$reasonCount{ $rejectionNotice{ $status } }++;
 		}
-		# not serious list; these get noted but patron's accounts are not updated.
+		# not serious list; these get noted, but patron's accounts are not updated.
 		elsif ( $rejectionNoticeNotSerious{ $status } )
 		{
 			$noteHeader = $rejectionNoticeNotSerious{ $status };
@@ -266,7 +295,7 @@ elsif ( $customerEmailCount == 0 )
 	print MAIL "There are no bounced messages.\n";
 }
 
-# mail stats to andrew.
+# mail stats to ILS administrator.
 my ($k, $v, $total);
 format MAIL =
 @####  @<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -277,7 +306,7 @@ format TOTAL =
 @####  total
 $total
 .
-# mail stats to andrew.
+# mail stats to ils administrator.
 print MAIL "\nBasic metrics:\n";
 while( ($k, $v) = each %reasonCount ) 
 {
@@ -299,5 +328,5 @@ open( MAIL, "<$mailFile" ) or die "Unable to send mail report because: $!\n";
 my $mail = join( "", <MAIL> );
 close( MAIL );
 # my $mail = join( "", @mailContent );
-sendMail( "Bounced email report", $stakeholders, $mail);
-1;
+sendMail( "Bounced email report", $stakeholders, $mail );
+# EOF

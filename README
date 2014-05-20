@@ -1,10 +1,44 @@
+Notes:
+======
 This directory contains two scripts used for handling bounced emails. The first is
-bounceback.pl which is run on EPLAPP and modifies customer's accounts.
-The second is uniqbounce.pl which manages a list of emailed customers. This script is
+parsemail.pl which parses the bounced mail for the sirsi account and creates a NDR.log
+report of which accounts failed and why.
+
+The second script file is bounceback.pl which modifies customer's accounts (see documentation in script).
+It modifies the patron accounts by removing the email field of the customer and placing
+the offending address, the reason for the bounce and the date it occured in a comment field 
+on the patron's account. It only performs this on the most serious SMTP errors.
+
+571 our domain has been blacklisted by recipients domain
+450 Patron's mailbox is unreachable and may be corrupted, offline indefinitely, or our domain blacklisted by domain
+554 Recipient's server believes our domain's email is spam
+553 Mailbox address is invalid
+551 Relay denied, recipient's ISP needs to allow our domain
+550 Patron's Mailbox is either disabled, suspended, firewall-blocking our domain, or does not exist
+541 Patron's firewall has rejected our domain's mail
+521 Patron's email account is disabled
+513 Recipient's mail server thinks the address is incorrectly formatted. Check for invalid characters
+512 The host server for the recipient’s domain name cannot be found
+516 Bad email address.
+510 Bad email address. Confirm spelling
+511 Bad email address. Confirm spelling
+111 Patron's mail server refused our connection request
+
+It does however log all errors to help with diagnosing problems with mail.
+
+
+A third file, uniqbounce.pl manages a list of emailed customers. This script is
 not used regularly and was developed to help with the situation where Microsoft
 blacklisted our site and hotmail customers no longer received our notices.
 
 Until that got fixed, we emailed customers through our marketing accout at EPL,
-that they we could not reach them by email so please check your account online
-to find out what fees, fines, holds you have. See documentation in the perl script.
+that we could not reach them by email so please check your account online
+to find out what fees, fines, holds you have. This script managed the accounts
+to ensure that we didn't spam them with the same message every time we emailed 
+something.
 
+Dependencies:
+=============
+The script parsemail.pl uses xmail to send reports, but this can be modified or disabled to suit your system.
+
+Andrew Nisbet May 20, 2014.
