@@ -1,5 +1,9 @@
 Notes:
 ======
+
+To ease maintenance of this script please download it at:
+https://github.com/Edmonton-Public-Library/bounceback
+
 This directory contains two scripts used for handling bounced emails. The first is
 parsemail.pl which parses the bounced mail for the sirsi account and creates a NDR.log
 report of which accounts failed and why.
