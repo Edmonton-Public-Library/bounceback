@@ -58,6 +58,8 @@ sub usage()
 	usage: $0 [-x][-u][-d<n>]
 	
 Handles the arduous task of updating users accounts if their emails don't work.
+It removes patron email account, placing it, a message about the error encountered
+and the date in the account's comment field.
 
  -d int : Debug 'n' number of emails.
  -u     : Actually update the records, don't just show me what you're doing.

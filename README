@@ -24,8 +24,12 @@ on the patron's account. It only performs this on the most serious SMTP errors.
 511 Bad email address. Confirm spelling
 111 Patron's mail server refused our connection request
 
-It does however log all errors to help with diagnosing problems with mail.
-
+It does however additional non-fatal errors to help with diagnosing problems with mail:
+443 Patron's mail server dropped connection or is not responding
+447 Patron's mail server timed out during delivery
+500 Patron server's firewall or anti-virus software may be interfering with mail delivery
+422 Patron's mail box is full
+552 Mail aborted because mailbox is full
 
 A third file, uniqbounce.pl manages a list of emailed customers. This script is
 not used regularly and was developed to help with the situation where Microsoft
