@@ -123,12 +123,12 @@ sub init
     usage() if ($opt{'x'});
 	if (not -s $mailbox) # file not exist or has zero size
 	{
-		print getDate()." **Error: no mail to process in '$mailbox'. Are you sure that's where its located?\n";
+		print getDate()." **Error: no mail to process in '$mailbox'. Are you sure thats where its located?\n";
 		usage();
 	}
 	if ( -s $bouncedCustomers )
 	{
-		print "'$bouncedCustomers' exists.\nYesterday's list may not have been processed. Do you want to over write it? <yes|no> ";
+		print "'$bouncedCustomers' exists.\nYesterdays list may not have been processed. Do you want to over write it? <yes|no> ";
 		my $answer;
 		chomp ($answer = <>);
 		if ($answer !~ m/^y/i)
@@ -177,24 +177,24 @@ print POTENTIAL_PROBLEMS "\n".getDate()."\n";
 my $emailAddress    = "";
 my %rejectionNotice = ();
 $rejectionNotice{ 571 } = qq{our domain has been blacklisted by recipients domain};
-$rejectionNotice{ 450 } = qq{Patron's mailbox is unreachable and may be corrupted, offline indefinitely, or our domain blacklisted by domain};
-$rejectionNotice{ 554 } = qq{Recipient's server believes our domain's email is spam};
+$rejectionNotice{ 450 } = qq{Patrons mailbox is unreachable and may be corrupted, offline indefinitely, or our domain blacklisted by domain};
+$rejectionNotice{ 554 } = qq{Recipients server believes our domains email is spam};
 $rejectionNotice{ 553 } = qq{Mailbox address is invalid};
-$rejectionNotice{ 551 } = qq{Relay denied, recipient's ISP needs to allow our domain};
-$rejectionNotice{ 550 } = qq{Patron's Mailbox is either disabled, suspended, firewall-blocking our domain, or does not exist};
-$rejectionNotice{ 541 } = qq{Patron's firewall has rejected our domain's mail};
-$rejectionNotice{ 521 } = qq{Patron's email account is disabled};
-$rejectionNotice{ 513 } = qq{Recipient's mail server thinks the address is incorrectly formatted. Check for invalid characters};
-$rejectionNotice{ 512 } = qq{The host server for the recipient’s domain name cannot be found};
+$rejectionNotice{ 551 } = qq{Relay denied, recipients ISP needs to allow our domain};
+$rejectionNotice{ 550 } = qq{Patrons Mailbox is either disabled, suspended, firewall-blocking our domain, or does not exist};
+$rejectionNotice{ 541 } = qq{Patrons firewall has rejected our domains mail};
+$rejectionNotice{ 521 } = qq{Patrons email account is disabled};
+$rejectionNotice{ 513 } = qq{Recipients mail server thinks the address is incorrectly formatted. Check for invalid characters};
+$rejectionNotice{ 512 } = qq{The host server for the recipients domain name cannot be found};
 $rejectionNotice{ 516 } = qq{Bad email address.};
 $rejectionNotice{ 510 } = qq{Bad email address. Confirm spelling};
 $rejectionNotice{ 511 } = qq{Bad email address. Confirm spelling};
-$rejectionNotice{ 111 } = qq{Patron's mail server refused our connection request};
+$rejectionNotice{ 111 } = qq{Patrons mail server refused our connection request};
 my %rejectionNoticeNotSerious = ();
-$rejectionNoticeNotSerious{ 443 } = qq{Patron's mail server dropped connection or is not responding};
-$rejectionNoticeNotSerious{ 447 } = qq{Patron's mail server timed out during delivery};
-$rejectionNoticeNotSerious{ 500 } = qq{Patron server's firewall or anti-virus software may be interfering with mail delivery};
-$rejectionNoticeNotSerious{ 422 } = qq{Patron's mail box is full};
+$rejectionNoticeNotSerious{ 443 } = qq{Patrons mail server dropped connection or is not responding};
+$rejectionNoticeNotSerious{ 447 } = qq{Patrons mail server timed out during delivery};
+$rejectionNoticeNotSerious{ 500 } = qq{Patron servers firewall or anti-virus software may be interfering with mail delivery};
+$rejectionNoticeNotSerious{ 422 } = qq{Patrons mail box is full};
 $rejectionNoticeNotSerious{ 552 } = qq{Mail aborted because mailbox is full};
 my %reasonCount;
 my %domainCount;
@@ -240,7 +240,7 @@ while (<SIRSI_MAIL>)
 				}
 				if ( not $dierWarningSent )
 				{
-					my $msg = "A patron's email ($emailAddress) was returned because we was blacklisted, please investigate.";
+					my $msg = "A patrons email ($emailAddress) was returned because we was blacklisted, please investigate.";
 					sendMail( "***Blacklist Warning***", "ilsadmin\@example.ca", $msg );
 				}
 				$dierWarningSent++;
