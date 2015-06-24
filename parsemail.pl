@@ -128,7 +128,7 @@ sub init
 	}
 	if ( -s $bouncedCustomers )
 	{
-		print "'$bouncedCustomers' exists.\nYesterdays list may not have been processed. Do you want to over write it? <yes|no> ";
+		print "'$bouncedCustomers' exists.\nYesterdays list may not have been processed. Do you want to over write it? y[n] ";
 		my $answer;
 		chomp ($answer = <>);
 		if ($answer !~ m/^y/i)
@@ -200,6 +200,7 @@ my %reasonCount;
 my %domainCount;
 my $customerEmailCount = 0;
 my %uniquePatronEmails;
+my $ignoreAccount     = 0;
 # Email header ordering:
 # Arrival-Date: Tue, 28 Aug 2012 05:18:37 -0700
 # Final-Recipient: rfc822;news.hotmail8@gmail.com
@@ -211,18 +212,27 @@ while (<SIRSI_MAIL>)
 	# capture every Final-Recipient for statistics reporting.
 	if ( $_ =~ m/^Final-Recipient:/i )
 	{
+		# reset this (if set). It sanitizes malformed email local names in addresses.
+		$ignoreAccount = 0;
 		# snag the address while we can, if Action turns out to be failed then we will use it.
 		my @finalRecipientAddress = split( ';', $_ );
 		$emailAddress = trim( $finalRecipientAddress[1] );
 		# some emails come back with angle brackets.
 		$emailAddress =~ s/[<>]//g;
 		my @nameDomain = split( '\@', $emailAddress );
+		if ( $nameDomain[0] =~ m/^[\*\.\?\+]/ )
+		{
+			printf STDERR "\n***\n*** Warning: malformed email local name detected: '%s'\n***\n", $nameDomain[0];
+			# Stop this from processing.
+			$ignoreAccount = 1;
+		}
 		my $domain = lc( $nameDomain[1] );
 		# Keep a count of all the domains we handled today.
 		$domainCount{ $domain }++;
 	}
 	if ( $_ =~ m/^Status:/i )
 	{
+		next if ( $ignoreAccount );
 		my @statusReason = split( ':', $_ );
 		$statusReason[1] =~ s/\.//g;
 		$statusReason[1] =~ s/^\s+//g;

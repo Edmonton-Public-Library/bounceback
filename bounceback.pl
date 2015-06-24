@@ -25,6 +25,8 @@
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Date:    July 9, 2012
+# Rev:     0.3 - Wed Jun 24 15:13:13 MDT 2015 - added output of -d to STDERR,
+#          and ignoring emails that are not safe to process, ie: '.@hotmail.com' 
 # Rev:     0.2 - August 23, 2012 Initial release
 ########################################################################
 # Is there is a '.forward' file that is sending all bounces to another account?
@@ -96,7 +98,7 @@ if (@emailList > 200)
 	chomp ($answer = <>);
 	if ($answer !~ m/^y/i)
 	{
-		print "that's probably a good idea. exiting.\n";
+		print STDERR "that's probably a good idea. exiting.\n";
 		exit 0;
 	}
 }
@@ -113,7 +115,7 @@ foreach my $NDRlogRecord ( @emailList )
 	if( $NDRlogRecord =~ m/^\d/ )
 	{
 		$logDate = $NDRlogRecord;
-		print "Processed on $logDate\n" if ($opt{'d'});
+		print STDERR "Processed on $logDate\n" if ($opt{'d'});
 		print LOG "Processed on $logDate\n";
 		next;
 	}
@@ -121,11 +123,17 @@ foreach my $NDRlogRecord ( @emailList )
 	my ($bounceReason, $email) = split('\|', $NDRlogRecord);
 	if (not $email)
 	{
-		print     "no email found in '$NDRlogRecord'\n";
+		print STDERR "no email found in '$NDRlogRecord'\n";
 		print LOG "no email found in '$NDRlogRecord'\n";
 		next;
 	}
-	print "--($bounceReason, $email)--\n" if ($opt{'d'});
+	# Stop un-sanitized local names from being processed. 
+	if ( $email =~ m/^[\*\.\?\+]/ )
+	{
+		printf STDERR "\n***\n*** Warning: malformed email local name detected: '%s'\n***\n", $email;
+		next;
+	}
+	print STDERR "--($bounceReason, $email)--\n" if ($opt{'d'});
 	print LOG "--($bounceReason, $email)--\n";
 	# get the VED fields for this user via API, but not for users with the profiles LOSTCARD, MISSING, EPL-CANCEL, or DISCARD.
 	my $userKey = `echo "$email {EMAIL}"|selusertext|seluser -iU -oU -p"~LOSTCARD,MISSING,EPL-CANCEL,DISCARD"`;
@@ -139,7 +147,7 @@ foreach my $NDRlogRecord ( @emailList )
 	my $flatUser = `echo "$userKey" | dumpflatuser`;
 	if ( not $flatUser )
 	{
-		print     "no patron found with email of '$email'.\n";
+		print STDERR "no patron found with email of '$email'.\n";
 		print LOG "no patron found with email of '$email'.\n";
 		next;
 	}
@@ -189,13 +197,15 @@ foreach my $NDRlogRecord ( @emailList )
 	$debugCounter++;
 }
 close(USER_KEYS);
-print LOG "removing $ndr\n";
-unlink($ndr);
+if ($opt{'u'})
+{
+	print LOG "removing $ndr\n";
+	unlink($ndr);
+}
 close(LOG);
 close(PREUPDATEPATRON);
 
 ######### Functions
-
 # Deletes a single VED record.
 # param:  field string - name of the VED record to delete, like 'EMAIL'. Do not include the '.' at the beginning or
 #         or end of the field name. The field must start with the argument name exactly - case matters.
@@ -209,7 +219,7 @@ sub deleteVED
 		my $VEDField = shift(@VEDFields);
 		if ($VEDField =~ m/^\.($field)\./)
 		{
-			print     "DELETE: $VEDField\n\n" if ($opt{'d'});
+			print STDERR "DELETE: $VEDField\n\n" if ($opt{'d'});
 			print LOG "DELETED: $VEDField\n";
 			next;
 		}
@@ -235,7 +245,7 @@ sub updateNoteVED
 		{
 			push( @newVED, $VEDField );
 			push( @newVED, ".NOTE. |a$newValue" );
-			print     "Appended: '$newValue'\n" if ($opt{'d'});
+			print STDERR "Appended: '$newValue'\n" if ($opt{'d'});
 			print LOG "Appended: '$newValue'\n";
 		}
 		else
