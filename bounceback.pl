@@ -25,6 +25,7 @@
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Date:    July 9, 2012
+# Rev:     0.3.01 - Changed EPL- profiles to EPL_.
 # Rev:     0.3 - Wed Jun 24 15:13:13 MDT 2015 - added output of -d to STDERR,
 #          and ignoring emails that are not safe to process, ie: '.@hotmail.com' 
 # Rev:     0.2 - August 23, 2012 Initial release
@@ -135,11 +136,11 @@ foreach my $NDRlogRecord ( @emailList )
 	}
 	print STDERR "--($bounceReason, $email)--\n" if ($opt{'d'});
 	print LOG "--($bounceReason, $email)--\n";
-	# get the VED fields for this user via API, but not for users with the profiles LOSTCARD, MISSING, EPL-CANCEL, or DISCARD.
-	my $userKey = `echo "$email {EMAIL}"|selusertext|seluser -iU -oU -p"~LOSTCARD,MISSING,EPL-CANCEL,DISCARD"`;
+	# get the VED fields for this user via API, but not for users with the profiles LOSTCARD, MISSING, EPL_CANCEL, or DISCARD.
+	my $userKey = `echo "$email {EMAIL}"|selusertext|seluser -iU -oU -p"~LOSTCARD,MISSING,EPL_CANCEL,DISCARD"`;
 	if ( not $userKey )
 	{
-		print LOG "user key $userKey has a profile of either LOSTCARD,MISSING,EPL-CANCEL,DISCARD and will not be processed.\n";
+		print LOG "user key $userKey has a profile of either LOSTCARD,MISSING,EPL_CANCEL,DISCARD and will not be processed.\n";
 		next;
 	}
 	print USER_KEYS "$userKey";

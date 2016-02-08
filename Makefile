@@ -7,7 +7,7 @@ LOCAL=~/projects/bounceback/
 APP=bounceback.pl
 APP2=parsemail.pl
 APP3=uniqbounce.pl
-
+.PHONEY: test put
 put: test
 	scp ${LOCAL}${APP} ${USER}@${SERVER}:${REMOTE}
 	scp ${LOCAL}${APP2} ${USER}@${SERVER}:${REMOTE}
