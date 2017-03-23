@@ -27,6 +27,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Dependencies: Uses xmail, but can be modified to use any Unix mailer, or none at all.
 # Date:    July 13, 2012
+# Rev:     0.8 - 2017-03-08 Fix warn messages while processing empty strings.
 # Rev:     0.7 - 2014-05-20 Clean up for broader distribution.
 # Rev:     0.6 - 2012-09-07 08:28:00 Saves unknown error codes to the non-fatal log.
 # Rev:     0.5 - 2012-08-29 09:28:48 Added non-serious logging for diagnostics of patron mail.
@@ -39,7 +40,7 @@
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
-my $VERSION          = 0.7;
+my $VERSION          = 0.8;
 my $mailFile         = "mail.txt"; # Name of the report file that will be sent to the ILS admin.
 my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]".
 my $mailbox          = "/var/mail/sirsi"; # name of the bounced mail file for the sirsi user.
@@ -108,8 +109,8 @@ sub getDate
 sub trim($)
 {
 	my $string = shift;
-	$string =~ s/^\s+//;
-	$string =~ s/\s+$//;
+	$string =~ s/^\s+// if ( $string );
+	$string =~ s/\s+$// if ( $string );
 	return $string;
 }
 
@@ -217,18 +218,25 @@ while (<SIRSI_MAIL>)
 		# snag the address while we can, if Action turns out to be failed then we will use it.
 		my @finalRecipientAddress = split( ';', $_ );
 		$emailAddress = trim( $finalRecipientAddress[1] );
-		# some emails come back with angle brackets.
-		$emailAddress =~ s/[<>]//g;
-		my @nameDomain = split( '\@', $emailAddress );
-		if ( $nameDomain[0] =~ m/^[\*\.\?\+]/ )
+		if ( $emailAddress )
 		{
-			printf STDERR "\n***\n*** Warning: malformed email local name detected: '%s'\n***\n", $nameDomain[0];
-			# Stop this from processing.
-			$ignoreAccount = 1;
+			# some emails come back with angle brackets.
+			$emailAddress =~ s/[<>]//g;
+			my @nameDomain = split( '\@', $emailAddress );
+			if ( $nameDomain[0] =~ m/^[\*\.\?\+]/ )
+			{
+				printf STDERR "\n***\n*** Warning: malformed email local name detected: '%s'\n***\n", $nameDomain[0];
+				# Stop this from processing.
+				$ignoreAccount = 1;
+			}
+			my $domain = lc( $nameDomain[1] );
+			# Keep a count of all the domains we handled today.
+			$domainCount{ $domain }++;
 		}
-		my $domain = lc( $nameDomain[1] );
-		# Keep a count of all the domains we handled today.
-		$domainCount{ $domain }++;
+		else
+		{
+			printf STDERR "\n*** Warning: malformed email: '%s'\n***\n", $finalRecipientAddress[1];
+		}
 	}
 	if ( $_ =~ m/^Status:/i )
 	{
