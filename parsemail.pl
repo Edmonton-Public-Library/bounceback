@@ -41,6 +41,7 @@
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
+
 my $VERSION          = 0.9;
 my $mailFile         = "mail.txt"; # Name of the report file that will be sent to the ILS admin.
 my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]".
@@ -148,10 +149,12 @@ sub init
 # param:  message string
 # return:
 #
-sub sendMail
+sub sendMail( $$$ )
 {
-	my ($subject, $recipients, $message) = @_;
-	print `echo "$message\n\nSigned: parsemail.pl on EPLAPP\n" | mailx -s"$subject" $recipients`;
+	my $subject    = shift;
+	my $recipients = shift;
+	my $message    = shift;
+	`echo "$message\n\nSigned: parsemail.pl on EPLAPP\n" | mailx -s"$subject" $recipients`;
 }
 
 #
@@ -169,10 +172,10 @@ sub isOnExceptionList
 }
 
 init();
-open SIRSI_MAIL, "<$mailbox" or die "Error opening $mailbox: $!\n";
-open BOUNCED_CUSTOMERS, ">$bouncedCustomers" or die "Error opening $bouncedCustomers: $!\n";
+open( SIRSI_MAIL, '<:utf8', $mailbox ) or die "Error opening $mailbox: $!\n";
+open( BOUNCED_CUSTOMERS, '>:utf8', $bouncedCustomers ) or die "Error opening $bouncedCustomers: $!\n";
 print BOUNCED_CUSTOMERS "\n".getDate()."\n";
-open POTENTIAL_PROBLEMS, ">>$failedAddresses" or die "Error opening $failedAddresses: $!\n";
+open( POTENTIAL_PROBLEMS, '>>:utf8', $failedAddresses ) or die "Error opening $failedAddresses: $!\n";
 print POTENTIAL_PROBLEMS "\n".getDate()."\n";
 my $emailAddress    = "";
 my %rejectionNotice = ();
@@ -258,7 +261,7 @@ while (<SIRSI_MAIL>)
 				if ( not $dierWarningSent )
 				{
 					my $msg = "A patrons email ($emailAddress) was returned because we was blacklisted, please investigate.";
-					sendMail( "***Blacklist Warning***", "ilsadmin\@example.ca", $msg );
+					sendMail( "***Blacklist Warning***", "ilsadmin\@epl.ca", $msg );
 				}
 				$dierWarningSent++;
 			}
