@@ -27,6 +27,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library.
 # Dependencies: Uses xmail, but can be modified to use any Unix mailer, or none at all.
 # Date:    July 13, 2012
+# Rev:     0.9 - 2018-10-23 Port to Redhat. Main changes; empty /var/mail/sirsi when done.
 # Rev:     0.8 - 2017-03-08 Fix warn messages while processing empty strings.
 # Rev:     0.7 - 2014-05-20 Clean up for broader distribution.
 # Rev:     0.6 - 2012-09-07 08:28:00 Saves unknown error codes to the non-fatal log.
@@ -40,7 +41,7 @@
 use strict;
 use vars qw/ %opt /;
 use Getopt::Std;
-my $VERSION          = 0.8;
+my $VERSION          = 0.9;
 my $mailFile         = "mail.txt"; # Name of the report file that will be sent to the ILS admin.
 my $noteHeader       = ""; # append "[address]. [Reason for bounceback.][date]".
 my $mailbox          = "/var/mail/sirsi"; # name of the bounced mail file for the sirsi user.
@@ -124,8 +125,8 @@ sub init
     usage() if ($opt{'x'});
 	if (not -s $mailbox) # file not exist or has zero size
 	{
-		print getDate()." **Error: no mail to process in '$mailbox'. Are you sure thats where its located?\n";
-		usage();
+		print getDate()." ***error: no mail to process in '$mailbox'. Are you sure thats where its located?\n";
+		exit( 0 );
 	}
 	if ( -s $bouncedCustomers )
 	{
@@ -150,9 +151,7 @@ sub init
 sub sendMail
 {
 	my ($subject, $recipients, $message) = @_;
-	open( MAILER, "| /usr/bin/mailx -s '$subject' $recipients" ) or warn "Unable to send mail report because: $!\n";
-	print MAILER "$message\n\nSigned: parsemail.pl on EPLAPP\n";
-	close( MAILER );
+	print `echo "$message\n\nSigned: parsemail.pl on EPLAPP\n" | mailx -s"$subject" $recipients`;
 }
 
 #
@@ -294,7 +293,7 @@ close BOUNCED_CUSTOMERS;
 close POTENTIAL_PROBLEMS;
 close SIRSI_MAIL;
 
-# c - clean the mail file? (Why would you?)
+# c - clean the mail file? (Why would you?) Why wouldn't you - it keeps growing on Redhat.
 if ( $opt{'c'} )
 {
 	unlink($mailbox);

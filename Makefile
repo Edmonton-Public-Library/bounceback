@@ -7,11 +7,13 @@ LOCAL=~/projects/bounceback/
 APP=bounceback.pl
 APP2=parsemail.pl
 APP3=uniqbounce.pl
+APP_DRIVER=mail.sh
 .PHONEY: test put
 put: test
 	scp ${LOCAL}${APP} ${USER}@${SERVER}:${REMOTE}
 	scp ${LOCAL}${APP2} ${USER}@${SERVER}:${REMOTE}
 	scp ${LOCAL}${APP3} ${USER}@${SERVER}:${REMOTE}
+	scp ${LOCAL}${APP_DRIVER} ${USER}@${SERVER}:${REMOTE}
 
 test:
 	perl -c ${LOCAL}${APP}
