@@ -6,7 +6,7 @@
 #          Email bounced: [address]. [reason] [date]
 #          in the note field of the extended data section of their account.
 # Updates users' accounts that their emails don't work.
-#    Copyright (C) 2012, 2013  Andrew Nisbet Edmonton Public Library
+#    Copyright (C) 2020  Andrew Nisbet Edmonton Public Library
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,7 +24,8 @@
 # MA 02110-1301, USA.
 #
 # Author:  Andrew Nisbet, Edmonton Public Library.
-# Date:    July 9, 2012
+# Date:    November 25, 2020
+# Rev:     0.3.02 - Add LIBRARYUSE and INTRANSIT to list of profiles to ignore.
 # Rev:     0.3.01 - Changed EPL- profiles to EPL_.
 # Rev:     0.3 - Wed Jun 24 15:13:13 MDT 2015 - added output of -d to STDERR,
 #          and ignoring emails that are not safe to process, ie: '.@hotmail.com' 
@@ -136,11 +137,13 @@ foreach my $NDRlogRecord ( @emailList )
 	}
 	print STDERR "--($bounceReason, $email)--\n" if ($opt{'d'});
 	print LOG "--($bounceReason, $email)--\n";
-	# get the VED fields for this user via API, but not for users with the profiles LOSTCARD, MISSING, EPL_CANCEL, or DISCARD.
-	my $userKey = `echo "$email {EMAIL}"|selusertext|seluser -iU -oU -p"~LOSTCARD,MISSING,EPL_CANCEL,DISCARD"`;
+	# get the VED fields for this user via API, but not for users with the profiles LOSTCARD, MISSING, EPL_CANCEL, LIBRAEYUSE, 
+	# TRANSIT or DISCARD. If there is an error of delivery, the script will remove the email from the system cards and break the pull
+	# and clean hold list scripts. This is just really a bandaid to ignore a problem with the mail system.
+	my $userKey = `echo "$email {EMAIL}"|selusertext|seluser -iU -oU -p"~LOSTCARD,MISSING,EPL_CANCEL,DISCARD,LIBRARYUSE,INTRANSIT"`;
 	if ( not $userKey )
 	{
-		print LOG "user key $userKey has a profile of either LOSTCARD,MISSING,EPL_CANCEL,DISCARD and will not be processed.\n";
+		print LOG "user key $userKey has a profile of either LOSTCARD,MISSING,EPL_CANCEL,DISCARD,LIBRARYUSE,INTRANSIT and will not be processed.\n";
 		next;
 	}
 	print USER_KEYS "$userKey";
