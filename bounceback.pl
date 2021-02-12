@@ -34,6 +34,15 @@
 # Is there is a '.forward' file that is sending all bounces to another account?
 # Remove that so the mail ends up in /var/mail/sirsi and process mail from there.
 use strict;
+chomp($ENV{'HOME'} = `. ~/.bashrc; echo ~`);
+open(my $IN, "<", "$ENV{'HOME'}/Unicorn/Config/environ") or die "$0: $! $ENV{'HOME'}/Unicorn/Config/environ\n";
+while(<$IN>)
+{
+    chomp;
+    my ($key, $value) = split(/=/, $_);
+    $ENV{$key} = "$value";
+}
+close($IN);
 use warnings;
 use vars qw/ %opt /;
 use Getopt::Std;
@@ -42,8 +51,8 @@ use Getopt::Std;
 # without assuming any environment settings and we need to use sirsi's.
 ###############################################
 # *** Edit these to suit your environment *** #
-$ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
-$ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
+# $ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
+# $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
 ###############################################
 
 my $noteHeader = "Email bounced:"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
