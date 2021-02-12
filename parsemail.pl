@@ -39,6 +39,15 @@
 # Rev:     0.0 - 2012-07-09 14:11:07 Initialization of the project.
 ##########################################################################################################################
 use strict;
+chomp($ENV{'HOME'} = `. ~/.bashrc; echo ~`);
+open(my $IN, "<", "$ENV{'HOME'}/Unicorn/Config/environ") or die "$0: $! $ENV{'HOME'}/Unicorn/Config/environ\n";
+while(<$IN>)
+{
+    chomp;
+    my ($key, $value) = split(/=/, $_);
+    $ENV{$key} = "$value";
+}
+close($IN);
 use vars qw/ %opt /;
 use Getopt::Std;
 
