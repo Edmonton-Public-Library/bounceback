@@ -51,8 +51,8 @@ use Getopt::Std;
 # without assuming any environment settings and we need to use sirsi's.
 ###############################################
 # *** Edit these to suit your environment *** #
-# $ENV{'PATH'} = ":/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/s/sirsi/Unicorn/Search/Bin";
-# $ENV{'UPATH'} = "/s/sirsi/Unicorn/Config/upath";
+# $ENV{'PATH'} = ":/software/EDPL/Unicorn/Bincustom:/software/EDPL/Unicorn/Bin:/software/EDPL/Unicorn/Search/Bin";
+# $ENV{'UPATH'} = "/software/EDPL/Unicorn/Config/upath";
 ###############################################
 
 my $noteHeader = "Email bounced:"; # append "[address]. [Reason for bounceback.][date]" later as we figure them out.
@@ -201,7 +201,7 @@ foreach my $NDRlogRecord ( @emailList )
 		print "$flatUser";
 		# -aR replace address fields, -bR replace extended fields, -mu just update user never create, -n don't reference BRS
 		# This switch is necessary so that the loadflatuser doesn't check for ACTIVE_IDs for the customer, then failing if they
-		# have them. -n does create an entry in /s/sirsi/Unicorn/Database/Useredit, so touchkeys is not required.
+		# have them. -n does create an entry in /software/EDPL/Unicorn/Database/Useredit, so touchkeys is not required.
 		`echo "$flatUser" | loadflatuser -aR -bR -l"ADMIN|PCGUI-DISP" -mu -n`;
 		print LOG "User updated.\n";
 	}
