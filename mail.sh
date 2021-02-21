@@ -28,8 +28,8 @@
 #           0.1
 #
 ###############################################################################
-source /s/sirsi/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
-MAIL_DIR=/s/sirsi/Unicorn/EPLwork/anisbet/Mail
+source /software/EDPL/Unicorn/EPLwork/cronjobscripts/setscriptenvironment.sh
+MAIL_DIR=/software/EDPL/Unicorn/EPLwork/anisbet/Mail
 # unset PERL_UNICODE
 perl $MAIL_DIR/parsemail.pl -c
 # the user doesn't have permissions to remove the file can we truncate it?
