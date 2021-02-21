@@ -1,6 +1,6 @@
 # copies most rescent files from eplapp for updating to git.
 #SERVER=edpl-t.library.ualberta.ca
-SERVER=eplapp.library.ualberta.ca
+SERVER=edpl.sirsidynix.net
 USER=sirsi
 REMOTE=~/Unicorn/EPLwork/anisbet/Mail/
 LOCAL=~/projects/bounceback/
